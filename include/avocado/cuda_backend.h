@@ -952,7 +952,7 @@ namespace avocado
 		 * \param[in] workspace Memory descriptor of some persistent workspace needed by the function.
 		 */
 		DLL_PUBLIC avStatus_t cudaOptimizerLearn(avContextDescriptor_t context, const avOptimizerDescriptor_t config,
-				const avTensorDescriptor_t wDesc, avMemoryDescriptor_t wMem, const avTensorDescriptor_t dwDesc, const avTensorDescriptor_t dwMem,
+				const avTensorDescriptor_t wDesc, avMemoryDescriptor_t wMem, const avTensorDescriptor_t dwDesc, const avMemoryDescriptor_t dwMem,
 				avMemoryDescriptor_t workspace);
 
 		/**
