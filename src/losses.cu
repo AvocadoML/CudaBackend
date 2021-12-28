@@ -8,6 +8,7 @@
 #include <avocado/cuda_backend.h>
 #include <avocado/backend/backend_descriptors.hpp>
 
+#include "activations.cuh"
 #include "utilities.hpp"
 
 #include <cuda_runtime_api.h>
@@ -118,56 +119,72 @@ namespace
 	}
 
 	/* Kernels for applying an operation to all elements (used for gradient calculation) */
-	template<typename T, class Function>
-	__global__ void kernel_pointwise_op(T *gradient, const T *output, const T *target, int length, T inv_batch_size, Function fn)
+	template<class Function, typename T, typename U = T>
+	__global__ void kernel_pointwise_op(T *gradient, const T *output, const T *target, unsigned int elements, U alpha, U beta, Function fn)
 	{
-		for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < length; i += gridDim.x * blockDim.x)
-			gradient[i] = inv_batch_size * fn.getGradient(output[i], target[i]);
-	}
-	template<typename T, class Function>
-	__host__ void launch_pointwise_op(cudaStream_t stream, T *gradient, const T *output, const T *target, int length, T inv_batch_size, Function fn) noexcept
-	{
-		dim3 gridDim(gridSize<1024>(length, 256));
-		kernel_pointwise_op<<<gridDim, 256, 0, stream>>>(gradient, output, target, length, inv_batch_size, fn);
+		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
+		{
+			U tmp = alpha * fn.getGradient(output[i], target[i]);
+			if (beta != zero<U>())
+				tmp += beta * gradient[i];
+			gradient[i] = tmp;
+		}
 	}
 
 	template<class Function>
-	void dispatch_loss(cudaStream_t stream, const mlTensor_t output, const mlTensor_t target, void *workspace, Function fn) noexcept
+	void dispatch_loss(avContextDescriptor_t context, const avTensorDescriptor_t outputDesc, const avMemoryDescriptor_t outputMem,
+			const avMemoryDescriptor_t targetMem, void *result, Function fn) noexcept
 	{
-		switch (output->dtype)
+		const unsigned int elements = getTensor(outputDesc).volume();
+		const unsigned int batch_size = getTensor(outputDesc).firstDim();
+		cudaStream_t stream = getContext(context).getStream();
+
+		switch (getTensor(outputDesc).dtype())
 		{
-			case DTYPE_FLOAT32:
+			case AVOCADO_DTYPE_FLOAT32:
 			{
-				launch_reduce_op(stream, constData<float>(output), constData<float>(target), reinterpret_cast<float*>(workspace), volume(output),
-						one<float>() / firstDim(output), fn);
+				float * workspace = getContext(context).getWorkspace().data<float>();
+				launch_reduce_op(stream, getPointer<float>(outputMem), getPointer<float>(targetMem), workspace, elements, 1.0f / batch_size, fn);
+				cudaMemcpyAsync(result, workspace, sizeof(float), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
-			case DTYPE_FLOAT64:
+			case AVOCADO_DTYPE_FLOAT64:
 			{
-				launch_reduce_op(stream, constData<double>(output), constData<double>(target), reinterpret_cast<double*>(workspace), volume(output),
-						one<double>() / firstDim(output), fn);
+				double * workspace = getContext(context).getWorkspace().data<double>();
+				launch_reduce_op(stream, getPointer<double>(outputMem), getPointer<double>(targetMem), workspace, elements, 1.0 / batch_size, fn);
+				cudaMemcpyAsync(result, workspace, sizeof(double), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
 		}
+		cudaStreamSynchronize(stream);
 	}
 	template<class Function>
-	void dispatch_gradient(cudaStream_t stream, mlTensor_t gradient, const mlTensor_t output, const mlTensor_t target, Function fn) noexcept
+	void dispatch_gradient(avContextDescriptor_t context, const void *alpha, const avTensorDescriptor_t outputDesc, const avMemoryDescriptor_t outputMem,
+			const avMemoryDescriptor_t targetMem, const void *beta, avMemoryDescriptor_t gradientMem, Function fn) noexcept
 	{
-		switch (output->dtype)
+		const unsigned int elements = getTensor(outputDesc).volume();
+		const unsigned int batch_size = getTensor(outputDesc).firstDim();
+		cudaStream_t stream = getContext(context).getStream();
+
+		dim3 blockDim(256);
+		dim3 gridDim(gridSize<1024>(elements, blockDim.x));
+
+		switch (getTensor(outputDesc).dtype())
 		{
-			case DTYPE_FLOAT32:
+			case AVOCADO_DTYPE_FLOAT32:
 			{
-				launch_pointwise_op(stream, data<float>(gradient), constData<float>(output), constData<float>(target), volume(output),
-						one<float>() / firstDim(output), fn);
+				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(gradientMem), getPointer<float>(outputMem),
+						getPointer<float>(targetMem), elements, getAlphaValue(alpha) / batch_size, getBetaValue(beta), fn);
 				break;
 			}
-			case DTYPE_FLOAT64:
+			case AVOCADO_DTYPE_FLOAT64:
 			{
-				launch_pointwise_op(stream, data<double>(gradient), constData<double>(output), constData<double>(target), volume(output),
-						one<double>() / firstDim(output), fn);
+				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(gradientMem), getPointer<double>(outputMem),
+						getPointer<double>(targetMem), elements, getAlphaValue<double>(alpha) / batch_size, getBetaValue<double>(beta), fn);
 				break;
 			}
 		}
+		cudaStreamSynchronize(stream);
 	}
 }
 
@@ -176,59 +193,44 @@ namespace avocado
 	namespace backend
 	{
 
-		mlStatus_t cudaLossFunction(mlContext_t context, mlLossType_t lossType, mlScalar_t result, const mlTensor_t output, const mlTensor_t target)
-		{
-			void *workspace = cuda_get_workspace(context, dataTypeSize(output->dtype) * volume(output));
-			switch (lossType)
-			{
-				case MEAN_SQUARE_LOSS:
-					dispatch_loss(getStream(context), output, target, workspace, MeanSquareError());
-					break;
-				case CROSS_ENTROPY_LOSS:
-					dispatch_loss(getStream(context), output, target, workspace, CrossEntropy(false));
-					break;
-				case KL_DIVERGENCE_LOSS:
-					dispatch_loss(getStream(context), output, target, workspace, KLDivergence(false));
-					break;
-				default:
-					return STATUS_NOT_SUPPORTED;
-			}
-			cudaCopyMemoryToCPU(context, result->data, workspace, dataTypeSize(result->dtype));
-			cudaStreamSynchronize(getStream(context));
-			return checkForErrors();
-		}
-		mlStatus_t cudaLossGradient(mlContext_t context, mlLossType_t lossType, mlTensor_t gradient, const mlTensor_t output, const mlTensor_t target,
-				bool fused)
-		{
-			switch (lossType)
-			{
-				case MEAN_SQUARE_LOSS:
-					dispatch_gradient(getStream(context), gradient, output, target, MeanSquareError());
-					break;
-				case CROSS_ENTROPY_LOSS:
-					dispatch_gradient(getStream(context), gradient, output, target, CrossEntropy(fused));
-					break;
-				case KL_DIVERGENCE_LOSS:
-					dispatch_gradient(getStream(context), gradient, output, target, KLDivergence(fused));
-					break;
-				default:
-					return STATUS_NOT_SUPPORTED;
-			}
-			cudaStreamSynchronize(getStream(context));
-			return checkForErrors();
-		}
-
 		avStatus_t cudaLossFunction(avContextDescriptor_t context, avLossType_t lossType, const avTensorDescriptor_t outputDesc,
 				const avMemoryDescriptor_t outputMem, const avTensorDescriptor_t targetDesc, const avMemoryDescriptor_t targetMem, void *result)
 		{
-			return AVOCADO_STATUS_NOT_SUPPORTED;
+			switch (lossType)
+			{
+				case AVOCADO_MEAN_SQUARE_LOSS:
+					dispatch_loss(context, outputDesc, outputMem, targetMem, result, MeanSquareError());
+					break;
+				case AVOCADO_CROSS_ENTROPY_LOSS:
+					dispatch_loss(context, outputDesc, outputMem, targetMem, result, CrossEntropy(false));
+					break;
+				case AVOCADO_KL_DIVERGENCE_LOSS:
+					dispatch_loss(context, outputDesc, outputMem, targetMem, result, KLDivergence(false));
+					break;
+				default:
+					return AVOCADO_STATUS_NOT_SUPPORTED;
+			}
+			return checkForErrors();
 		}
-
 		avStatus_t cudaLossGradient(avContextDescriptor_t context, avLossType_t lossType, const void *alpha, const avTensorDescriptor_t outputDesc,
 				const avMemoryDescriptor_t outputMem, const avTensorDescriptor_t targetDesc, const avMemoryDescriptor_t targetMem, const void *beta,
 				const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t gradientMem, bool isFused)
 		{
-			return AVOCADO_STATUS_NOT_SUPPORTED;
+			switch (lossType)
+			{
+				case AVOCADO_MEAN_SQUARE_LOSS:
+					dispatch_gradient(context, alpha, outputDesc, outputMem, targetMem, beta, gradientMem, MeanSquareError());
+					break;
+				case AVOCADO_CROSS_ENTROPY_LOSS:
+					dispatch_gradient(context, alpha, outputDesc, outputMem, targetMem, beta, gradientMem, CrossEntropy(isFused));
+					break;
+				case AVOCADO_KL_DIVERGENCE_LOSS:
+					dispatch_gradient(context, alpha, outputDesc, outputMem, targetMem, beta, gradientMem, KLDivergence(isFused));
+					break;
+				default:
+					return AVOCADO_STATUS_NOT_SUPPORTED;
+			}
+			return checkForErrors();
 		}
 
 	} /* namespace backend */
