@@ -230,4 +230,63 @@ struct ActivationSoftsign
 	}
 };
 
+namespace avocado
+{
+	namespace backend
+	{
+		template<typename T>
+		__device__ T activation_forward(avActivationType_t activation, T input) noexcept
+		{
+			switch (activation)
+			{
+				default:
+				case AVOCADO_ACTIVATION_LINEAR:
+					return ActivationLinear<T>().forward(input);
+				case AVOCADO_ACTIVATION_SIGMOID:
+					return ActivationSigmoid<T>().forward(input);
+				case AVOCADO_ACTIVATION_TANH:
+					return ActivationTanh<T>().forward(input);
+				case AVOCADO_ACTIVATION_RELU:
+					return ActivationRelu<T>().forward(input);
+				case AVOCADO_ACTIVATION_SELU:
+					return ActivationSelu<T>().forward(input);
+				case AVOCADO_ACTIVATION_ELU:
+					return ActivationElu<T>().forward(input);
+				case AVOCADO_ACTIVATION_EXPONENTIAL:
+					return ActivationExponential<T>().forward(input);
+				case AVOCADO_ACTIVATION_SOFTPLUS:
+					return ActivationSoftplus<T>().forward(input);
+				case AVOCADO_ACTIVATION_SOFTSIGN:
+					return ActivationSoftsign<T>().forward(input);
+			}
+		}
+		template<typename T>
+		__device__ T activation_backward(avActivationType_t activation, T gradient, T output) noexcept
+		{
+			switch (activation)
+			{
+				default:
+				case AVOCADO_ACTIVATION_LINEAR:
+					return ActivationLinear<T>().backward(gradient, output);
+				case AVOCADO_ACTIVATION_SIGMOID:
+					return ActivationSigmoid<T>().backward(gradient, output);
+				case AVOCADO_ACTIVATION_TANH:
+					return ActivationTanh<T>().backward(gradient, output);
+				case AVOCADO_ACTIVATION_RELU:
+					return ActivationRelu<T>().backward(gradient, output);
+				case AVOCADO_ACTIVATION_SELU:
+					return ActivationSelu<T>().backward(gradient, output);
+				case AVOCADO_ACTIVATION_ELU:
+					return ActivationElu<T>().backward(gradient, output);
+				case AVOCADO_ACTIVATION_EXPONENTIAL:
+					return ActivationExponential<T>().backward(gradient, output);
+				case AVOCADO_ACTIVATION_SOFTPLUS:
+					return ActivationSoftplus<T>().backward(gradient, output);
+				case AVOCADO_ACTIVATION_SOFTSIGN:
+					return ActivationSoftsign<T>().backward(gradient, output);
+			}
+		}
+	} /* namespace backend */
+} /* namespace avocado */
+
 #endif /* ACTIVATIONS_CUH_ */

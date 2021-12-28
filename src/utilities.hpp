@@ -17,9 +17,9 @@ const int cuda_error_offset = 1000000;
 const int cublas_error_offset = 2000000;
 
 template<unsigned int maxBlocks>
-dim3 gridSize(unsigned int problemSize, unsigned int blockSize) noexcept
+unsigned int gridSize(unsigned int problemSize, unsigned int blockSize) noexcept
 {
-	return dim3 { std::min(maxBlocks, (problemSize + blockSize - 1) / blockSize) };
+	return std::min(maxBlocks, (problemSize + blockSize - 1) / blockSize);
 }
 
 static avocado::backend::avStatus_t convertStatus(cudaError_t err) noexcept
