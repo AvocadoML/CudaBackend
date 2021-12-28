@@ -9,8 +9,9 @@
 #include <iostream>
 #include <cuda_runtime_api.h>
 #include <avocado/cuda_backend.h>
-#include <avocado/backend/tensor_helpers.hpp>
-#include "../src/context.hpp"
+#include <avocado/backend/backend_descriptors.hpp>
+#include <limits>
+
 #include "../src/utilities.hpp"
 #include "../src/activations.cuh"
 using namespace avocado::backend;
@@ -18,325 +19,440 @@ using namespace avocado::backend;
 class TensorWrapper
 {
 private:
-	TensorDescriptor desc;
+	avTensorDescriptor_t desc;
+	avMemoryDescriptor_t mem;
 public:
 	TensorWrapper(std::initializer_list<int> dimensions, avDataType_t dtype, int device)
 	{
-		desc.shape = createShapeDescriptor(dimensions);
-		avSize_t size_in_bytes = volume(desc.shape) * dataTypeSize(dtype);
-		cudaSetDevice(device);
-		cudaMalloc(&(desc.data), size_in_bytes);
-		cudaMemset(desc.data, 0, size_in_bytes);
-		desc.dtype = dtype;
+		cudaCreateTensorDescriptor(&desc);
+		cudaSetTensorDescriptor(desc, dtype, dimensions.size(), dimensions.begin());
+
+		avSize_t size_in_bytes = getTensor(desc).sizeInBytes();
+		cudaCreateMemoryDescriptor(&mem, device, size_in_bytes);
+		cudaSetMemory(device, mem, size_in_bytes, nullptr, 0);
 	}
 	~TensorWrapper()
 	{
-		cudaFree(desc.data);
+		cudaDestroyTensorDescriptor(desc);
+		cudaDestroyMemoryDescriptor(mem);
 	}
 	template<typename T>
 	void fill(T value)
 	{
-		assert(typeOf<T>() == desc.dtype);
-		std::unique_ptr<T[]> tmp = std::make_unique<T[]>(volume(desc.shape));
-		for (avSize_t i = 0; i < volume(desc.shape); i++)
+		assert(typeOf<T>() == getTensor(desc).dtype());
+		std::unique_ptr<T[]> tmp = std::make_unique<T[]>(getTensor(desc).volume());
+		for (avSize_t i = 0; i < getTensor(desc).volume(); i++)
 			tmp[i] = value;
-		cudaMemcpy(desc.data, tmp.get(), volume(desc.shape) * dataTypeSize(desc.dtype), cudaMemcpyHostToDevice);
+		cudaMemcpy(getPointer(mem), tmp.get(), getTensor(desc).sizeInBytes(), cudaMemcpyHostToDevice);
 	}
 	template<typename T>
-	T& at(std::initializer_list<int> idx)
+	void set(T value, std::initializer_list<int> idx)
 	{
-		return *(reinterpret_cast<T*>(desc.data) + get_index(idx));
+		cudaMemcpy(getPointer<T>(mem) + getTensor(desc).getIndex(idx), &value, sizeof(T), cudaMemcpyHostToDevice);
 	}
 	template<typename T>
 	T get(std::initializer_list<int> idx) const
 	{
 		T result;
-		cudaMemcpy(&result, reinterpret_cast<const T*>(desc.data) + get_index(idx), sizeof(T), cudaMemcpyDeviceToHost);
+		cudaMemcpy(&result, getPointer<T>(mem) + getTensor(desc).getIndex(idx), sizeof(T), cudaMemcpyDeviceToHost);
 		return result;
 	}
-	operator avTensor_t() noexcept
+	operator avTensorDescriptor_t() noexcept
 	{
-		return &desc;
+		return desc;
 	}
 	template<typename T>
 	T* data() noexcept
 	{
-		return reinterpret_cast<T*>(desc.data);
+		return getPointer<T>(mem);
 	}
 	template<typename T>
 	const T* data() const noexcept
 	{
-		return reinterpret_cast<const T*>(desc.data);
+		return getPointer<T>(mem);
 	}
-private:
-	avSize_t get_index(std::initializer_list<int> index) const
+};
+
+template<typename T>
+struct limits
+{
+	__device__ T max() const noexcept
 	{
-		assert(desc.shape.length == static_cast<int>(index.size()));
-		avSize_t result = 0;
-		avSize_t tmp = 1;
-		for (int i = index.size() - 1; i >= 0; i--)
+	}
+	__device__ T lowest() const noexcept
+	{
+	}
+};
+template<>
+struct limits<half>
+{
+	__device__ float max() const noexcept
+	{
+		return 65504;
+	}
+	__device__ float lowest() const noexcept
+	{
+		return -max();
+	}
+};
+template<>
+struct limits<float>
+{
+	__device__ float max() const noexcept
+	{
+		return 3.40282346638528859811704183484516925e+38f;
+	}
+	__device__ float lowest() const noexcept
+	{
+		return -max();
+	}
+};
+template<>
+struct limits<double>
+{
+	__device__ double max() const noexcept
+	{
+		return 1.79769313486231570814527423731704357e+308;
+	}
+	__device__ double lowest() const noexcept
+	{
+		return -max();
+	}
+};
+
+template<typename T>
+class ReduceAdd
+{
+	T acc = zero<T>();
+public:
+	__device__ ReduceAdd() = default;
+	__device__ void accumulate(T x) noexcept
+	{
+		acc += x;
+	}
+	__device__ void combine_partial(ReduceAdd other) noexcept
+	{
+		acc += other.acc;
+	}
+	__device__ ReduceAdd& operator=(T value) noexcept
+	{
+		acc = value;
+		return *this;
+	}
+	__device__ operator T() const noexcept
+	{
+		return acc;
+	}
+};
+template<typename T>
+class ReduceMul
+{
+	T acc = one<T>();
+public:
+	__device__ ReduceMul() = default;
+	__device__ void accumulate(T x) noexcept
+	{
+		acc *= x;
+	}
+	__device__ void combine_partial(ReduceMul other) noexcept
+	{
+		acc *= other.acc;
+	}
+	__device__ ReduceMul& operator=(T value) noexcept
+	{
+		acc = value;
+		return *this;
+	}
+	__device__ operator T() const noexcept
+	{
+		return acc;
+	}
+};
+template<typename T>
+class ReduceMin
+{
+	T acc = limits<T>().max();
+public:
+	__device__ ReduceMin() = default;
+	__device__ void accumulate(T x) noexcept
+	{
+		this->acc = min(this->acc, x);
+	}
+	__device__ void combine_partial(ReduceMin other) noexcept
+	{
+		this->acc = min(this->acc, other.acc);
+	}
+	__device__ ReduceMin& operator=(T value) noexcept
+	{
+		acc = value;
+		return *this;
+	}
+	__device__ operator T() const noexcept
+	{
+		return acc;
+	}
+};
+template<typename T>
+class ReduceMax
+{
+	T acc = limits<T>().lowest();
+public:
+	__device__ ReduceMax() = default;
+	__device__ void accumulate(T x) noexcept
+	{
+		acc = max(acc, x);
+	}
+	__device__ void combine_partial(ReduceMax other) noexcept
+	{
+		acc = max(acc, other.acc);
+	}
+	__device__ ReduceMax& operator=(T value) noexcept
+	{
+		acc = value;
+		return *this;
+	}
+	__device__ operator T() const noexcept
+	{
+		return acc;
+	}
+};
+template<typename T>
+class ReduceAMax
+{
+	T acc = zero<T>();
+public:
+	__device__ ReduceAMax() = default;
+	__device__ void accumulate(T x) noexcept
+	{
+		acc = max(acc, abs(x));
+	}
+	__device__ void combine_partial(ReduceAMax other) noexcept
+	{
+		acc = max(acc, other.acc);
+	}
+	__device__ ReduceAMax& operator=(T value) noexcept
+	{
+		acc = value;
+		return *this;
+	}
+	__device__ operator T() const noexcept
+	{
+		return acc;
+	}
+};
+template<typename T>
+class ReduceNorm1
+{
+	T acc = zero<T>();
+public:
+	__device__ ReduceNorm1() = default;
+	__device__ void accumulate(T x) noexcept
+	{
+		acc += abs(x);
+	}
+	__device__ void combine_partial(ReduceNorm1 other) noexcept
+	{
+		acc += other.acc;
+	}
+	__device__ ReduceNorm1& operator=(T value) noexcept
+	{
+		acc = value;
+		return *this;
+	}
+	__device__ operator T() const noexcept
+	{
+		return acc;
+	}
+};
+template<typename T>
+class ReduceNorm2
+{
+	T acc = zero<T>();
+public:
+	__device__ ReduceNorm2() = default;
+	__device__ void accumulate(T x) noexcept
+	{
+		acc += square(x);
+	}
+	__device__ void combine_partial(ReduceNorm2 other) noexcept
+	{
+		acc += other.acc;
+	}
+	__device__ ReduceNorm2& operator=(T value) noexcept
+	{
+		acc = value;
+		return *this;
+	}
+	__device__ operator T() const noexcept
+	{
+		return acc;
+	}
+};
+template<typename T>
+class ReduceMulNoZeros
+{
+	T acc = one<T>();
+public:
+	__device__ ReduceMulNoZeros() = default;
+	__device__ void accumulate(T x) noexcept
+	{
+		if (x != zero<T>())
+			acc *= x;
+	}
+	__device__ void combine_partial(ReduceMulNoZeros other) noexcept
+	{
+		acc *= other.acc;
+	}
+	__device__ ReduceMulNoZeros& operator=(T value) noexcept
+	{
+		acc = value;
+		return *this;
+	}
+	__device__ operator T() const noexcept
+	{
+		return acc;
+	}
+};
+
+template<class Acc>
+__device__ void reduce_linear_within_block(Acc *ptr) noexcept
+{
+	assert(ispow2(blockDim.x));
+	for (unsigned int i = blockDim.x / 2; i >= 1; i /= 2) // sum results stored in temporary array
+	{
+		if (threadIdx.x < i)
+			ptr[threadIdx.x].combine_partial(ptr[threadIdx.x + i]);
+		__syncthreads();
+	}
+}
+template<class Acc, typename T>
+__global__ void kernel_reduce_linear_1(T *dst, const T* src, unsigned int elements)
+{
+	__shared__ Acc storage[1024];
+
+	Acc acc;
+	for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+		acc.accumulate(src[i]);
+
+	storage[threadIdx.x] = acc;
+
+	__syncthreads();
+	reduce_linear_within_block(storage);
+	if (threadIdx.x == 0)
+		dst[blockIdx.x] = storage[0];
+}
+template<class Acc, typename T>
+__global__ void kernel_reduce_linear_2(T *dst, const T* src, T alpha, T beta)
+{
+	__shared__ Acc storage[1024];
+	storage[threadIdx.x] = src[threadIdx.x];
+	__syncthreads();
+	reduce_linear_within_block(storage);
+	if (threadIdx.x == 0)
+	{
+		if (beta == zero<T>())
+			dst[0] = alpha * storage[0];
+		else
+			dst[0] = alpha * storage[0] + beta * dst[0];
+	}
+}
+
+template<class Acc>
+__device__ void reduce_broadcasted_within_block(Acc *ptr) noexcept
+{
+	for (int i = 16; i >= 1; i /= 2) // sum results stored in temporary array
+	{
+		if (threadIdx.y < i)
+			ptr[threadIdx.y * 32 + threadIdx.x].combine_partial(ptr[(i + threadIdx.y) * 32 + threadIdx.x]);
+		__syncthreads();
+	}
+}
+template<class Acc, typename T>
+__global__ void kernel_reduce_broadcasted_1(T *dst, const T* src, unsigned int first_dim, unsigned int last_dim)
+{
+	__shared__ Acc storage[32][32];
+	for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
+	{
+		unsigned int idx = j + threadIdx.x;
+
+		Acc acc;
+		if (idx < last_dim)
 		{
-			int idx = index.begin()[i];
-			assert(idx >= 0 && idx < desc.shape.dim[i]);
-			result += idx * tmp;
-			tmp *= desc.shape.dim[i];
+			for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
+				acc.accumulate(src[i * last_dim + idx]);
 		}
-		return result;
-	}
-};
+		storage[threadIdx.y][threadIdx.x] = acc;
 
-template<typename T>
-class OpAdd
-{
-public:
-	__device__ T operator()(T lhs, T rhs) const noexcept
-	{
-		return lhs + rhs;
-	}
-};
-template<typename T>
-class OpSub
-{
-public:
-	__device__ T operator()(T lhs, T rhs) const noexcept
-	{
-		return lhs - rhs;
-	}
-};
-template<typename T>
-class OpMul
-{
-public:
-	__device__ T operator()(T lhs, T rhs) const noexcept
-	{
-		return lhs * rhs;
-	}
-};
-template<typename T>
-class OpMin
-{
-public:
-	__device__ T operator()(T lhs, T rhs) const noexcept
-	{
-		return min(lhs, rhs);
-	}
-};
-template<typename T>
-class OpMax
-{
-public:
-	__device__ T operator()(T lhs, T rhs) const noexcept
-	{
-		return max(lhs, rhs);
-	}
-};
-
-template<typename T>
-class OpAbs
-{
-public:
-	__device__ T operator()(T x) const noexcept
-	{
-		return abs(x);
-	}
-};
-template<typename T>
-class OpSquare
-{
-public:
-	__device__ T operator()(T x) const noexcept
-	{
-		return x * x;
-	}
-};
-template<typename T>
-class OpSqrt
-{
-public:
-	__device__ T operator()(T x) const noexcept
-	{
-		return sqrt(x);
-	}
-};
-template<typename T>
-class OpNot
-{
-public:
-	__device__ T operator()(T x) const noexcept
-	{
-		return -x;
-	}
-};
-
-template<class Op, typename T>
-__global__ void kernel_op_single_tensor(T* dst, const T *input, const T alpha, const unsigned int elements)
-{
-	Op operation;
-	for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
-		dst[i] = operation(input[i] * alpha);
-}
-template<class Op, typename T>
-__global__ void kernel_op_single_tensor(T* dst, const T *input, const T alpha, const T beta, const unsigned int elements)
-{
-	Op operation;
-	for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
-		dst[i] = operation(input[i] * alpha) + beta * dst[i];
-}
-
-template<typename T>
-__device__ T perform_op(avOpTensorOp_t operation, T lhs, T rhs) noexcept
-{
-	switch (operation)
-	{
-		case AVOCADO_OP_TENSOR_ADD:
-			return lhs + rhs;
-		case AVOCADO_OP_TENSOR_SUB:
-			return lhs - rhs;
-		case AVOCADO_OP_TENSOR_MUL:
-			return lhs * rhs;
-		case AVOCADO_OP_TENSOR_MIN:
-			return min(lhs, rhs);
-		case AVOCADO_OP_TENSOR_MAX:
-			return max(lhs, rhs);
-		default:
-			return zero<T>();
+		__syncthreads();
+		reduce_broadcasted_within_block(reinterpret_cast<Acc*>(storage));
+		if (threadIdx.y == 0 and idx < last_dim)
+			dst[blockIdx.y * last_dim + idx] = storage[0][threadIdx.x];
 	}
 }
-
-__device__ constexpr bool uses_single_operand(avOpTensorOp_t operation) noexcept
+template<class Acc, typename T>
+__global__ void kernel_reduce_broadcasted_2(T *dst, const T* src, T alpha, T beta, unsigned int first_dim, unsigned int last_dim)
 {
-//	return operation == AVOCADO_OP_TENSOR_SQRT or operation == AVOCADO_OP_TENSOR_NOT;
-}
-
-template<class Op, typename T>
-__global__ void template_kernel(T* dst, const T *input1, T alpha1, const T *input2, T alpha2, T beta, unsigned int first_dim, unsigned int last_dim)
-{
-	Op operation;
-	extern __shared__ float stored_input2[];
-
+	__shared__ Acc storage[32][32];
 	for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
 	{
-		int tmp_idx = j + threadIdx.x;
-		if (threadIdx.y == 0 and tmp_idx < last_dim)
-			stored_input2[threadIdx.x] = input2[tmp_idx] * alpha2;
-		__syncthreads();
-		if (tmp_idx < last_dim)
+		unsigned int idx = j + threadIdx.x;
+
+		Acc acc;
+		if (idx < last_dim)
+		{
 			for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-			{
-				T lhs = input1[i * last_dim + tmp_idx] * alpha1;
-				T rhs = stored_input2[threadIdx.x];
-				T tmp = operation(lhs, rhs);
-				if (beta != zero<T>())
-					tmp += beta * dst[i * last_dim + tmp_idx];
-				dst[i * last_dim + tmp_idx] = tmp;
-			}
-		__syncthreads();
-	}
-}
-template<class Op, typename T>
-__global__ void template_kernel_single(T* dst, const T *input1, T alpha1, const T *input2, T alpha2, T beta, unsigned int elements)
-{
-	Op operation;
-	float stored_input2 = input2[0] * alpha2;
+				acc.combine_partial(reinterpret_cast<const Acc*>(src)[i * last_dim + idx]);
+		}
+		storage[threadIdx.y][threadIdx.x] = acc;
 
-	for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
-	{
-		T lhs = input1[i] * alpha1;
-		T tmp = operation(lhs, stored_input2);
-		if (beta != zero<T>())
-			tmp += beta * dst[i];
-		dst[i] = tmp;
-	}
-}
-
-template<typename T>
-__global__ void template_kernel(T* dst, const T *input1, T alpha1, const T *input2, T alpha2, T beta, unsigned int first_dim, unsigned int last_dim,
-		avOpTensorOp_t operation)
-{
-	extern __shared__ float stored_input2[];
-
-	for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
-	{
-		int tmp_idx = j + threadIdx.x;
-//		if (not uses_single_operand(operation))
-//		{
-		if (threadIdx.y == 0 and tmp_idx < last_dim)
-			stored_input2[threadIdx.x] = input2[tmp_idx] * alpha2;
 		__syncthreads();
-//		}
-		if (tmp_idx < last_dim)
-			for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-			{
-				T lhs = input1[i * last_dim + tmp_idx] * alpha1;
-				T rhs = uses_single_operand(operation) ? zero<T>() : stored_input2[threadIdx.x];
-//				T rhs = stored_input2[threadIdx.x];
-//				T tmp = perform_op(operation, lhs, rhs);
-				T tmp = max(lhs, rhs);
-				if (beta != zero<T>())
-					tmp += beta * dst[i * last_dim + tmp_idx];
-				dst[i * last_dim + tmp_idx] = tmp;
-			}
-//		if (not uses_single_operand(operation))
-		__syncthreads();
-	}
-}
-template<typename T>
-__global__ void template_kernel(T* dst, const T *input1, T alpha1, T beta, unsigned int elements, avOpTensorOp_t operation)
-{
-	for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
-	{
-		T lhs = input1[i] * alpha1;
-		T tmp = perform_op(operation, lhs, 0.0f);
-		if (beta != zero<T>())
-			tmp += beta * dst[i];
-		dst[i] = tmp;
+		reduce_broadcasted_within_block(reinterpret_cast<Acc*>(storage));
+		if (threadIdx.y == 0 and idx < last_dim)
+		{
+			if (beta == zero<T>())
+				dst[blockIdx.y * last_dim + idx] = alpha * storage[0][threadIdx.x];
+			else
+				dst[blockIdx.y * last_dim + idx] = alpha * storage[0][threadIdx.x] + beta * dst[blockIdx.y * last_dim + idx];
+		}
 	}
 }
 
 int main()
 {
 	std::cout << __CUDACC_VER_MAJOR__ << "." << __CUDACC_VER_MINOR__ << "." << __CUDACC_VER_BUILD__ << '\n';
-	avContext_t context;
-	cudaCreateContext(&context, 0);
+//	avContext_t context;
+//	cudaCreateContext(&context, 0);
 
-	TensorWrapper dst( { 128, 20, 20, 128 }, typeOf<float>(), 0);
-	TensorWrapper input1( { 128, 20, 20, 128 }, typeOf<float>(), 0);
-	TensorWrapper input2( { 128 }, typeOf<float>(), 0);
+//	TensorWrapper dst( { 128 }, typeOf<float>(), 0);
+//	TensorWrapper input( { 128, 20, 20, 120 }, typeOf<float>(), 0);
+//	TensorWrapper workspace( { 128, 120 }, typeOf<float>(), 0);
 
-	input1.fill(2.0f);
-	input2.fill(0.22f);
-
-	dim3 blockDim(256);
-	dim3 gridDim(28 * 80);
-	kernel_op_single_tensor<OpAbs<float>, float> <<<gridDim, blockDim, 0, get_stream(context)>>>(dst.data<float>(), input1.data<float>(), 1.0f,
-			volume(input1));
-	cudaStreamSynchronize(get_stream(context));
+//	input.fill(1.0f);
+//	input.set(-10.0f, { 5, 0, 0, 4 });
 
 //	dim3 blockDim(32, 32);
-//	dim3 gridDim(4, 28 * 10);
+//	dim3 gridDim1(4, 128);
+//	dim3 gridDim2(4, 1);
 
-//	template_kernel<OpAdd<float>, float> <<<gridDim, blockDim, sizeof(float) * blockDim.x, get_stream(context)>>>(dst.data<float>(), input1.data<float>(), 1.0f,
-//			input2.data<float>(), 1.0f, 0.0f, volumeWithoutLastDim(input1), lastDim(input1));
+//	int partial_results = 64; // must be power of 2
+//	kernel_reduce_linear_1<ReduceMin<float>, float> <<<partial_results, 1024, 0, get_stream(context)>>>(workspace.data<float>(), input.data<float>(),
+//			volume(input));
+//	kernel_reduce_linear_2<ReduceMin<float>, float> <<<1, partial_results, 0, get_stream(context)>>>(dst.data<float>(), workspace.data<float>(), 1.0f, 0.0f);
+
+//	kernel_reduce_broadcasted_1<ReduceMin<float>, float> <<<gridDim1, blockDim, 0, get_stream(context)>>>(workspace.data<float>(), input.data<float>(),
+//			volumeWithoutLastDim(input), lastDim(input));
+//	kernel_reduce_broadcasted_2<ReduceMin<float>, float> <<<gridDim2, blockDim, 0, get_stream(context)>>>(dst.data<float>(), workspace.data<float>(), 1.0f,
+//			0.0f, firstDim(workspace), lastDim(workspace));
 //	cudaStreamSynchronize(get_stream(context));
 
-//	dim3 blockDim(1024);
-//	dim3 gridDim(28 * 10);
-//	template_kernel_single<OpAdd<float>, float> <<<gridDim, blockDim, sizeof(float) * blockDim.x, get_stream(context)>>>(dst.data<float>(),
-//			input1.data<float>(), 1.0f, input2.data<float>(), 1.0f, 0.0f, volume(input1));
-//	cudaStreamSynchronize(get_stream(context));
-
-//	template_kernel<<<gridDim, blockDim, sizeof(float) * blockDim.x, get_stream(context)>>>(input1.data<float>(), input1.data<float>(), 1.0f,
-//			input2.data<float>(), 1.0f, 0.0f, volumeWithoutLastDim(input1), lastDim(input1), AVOCADO_OP_TENSOR_MAX);
-//	cudaStreamSynchronize(get_stream(context));
-
-//	for (int i = 0; i < 2; i++)
+//	for (int i = 0; i < 1; i++)
 //	{
-//		for (int j = 0; j < 126; j++)
-//			std::cout << dst.get<float>( { i, j }) << ' ';
+//		for (int j = 0; j < 128; j++)
+//			std::cout << dst.get<float>( { j }) << ' ';
 //		std::cout << '\n';
 //	}
 
-	cudaDestroyContext(context);
+//	cudaDestroyContext(context);
 
 	std::cout << "END" << std::endl;
 	return 0;

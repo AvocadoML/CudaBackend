@@ -39,6 +39,9 @@
 								</option>
 								<option id="com.nvidia.cuda.toolchain.compiler.dialect.321352086" name="Language standard" superClass="com.nvidia.cuda.toolchain.compiler.dialect" useByScannerDiscovery="false" value="com.nvidia.cuda.toolchain.compiler.dialect.cpp14" valueType="enumerated"/>
 								<option id="com.nvidia.cuda.toolchain.compiler.relaxed-constexpr.37034353" name="Allow host code to invoke __device__ constexpr functions" superClass="com.nvidia.cuda.toolchain.compiler.relaxed-constexpr" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="nvcc.compiler.def.symbols.1503116754" superClass="nvcc.compiler.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="USE_CUDA=1"/>
+								</option>
 								<inputType id="com.nvidia.cuda.toolchain.input.c.554822316" name="C" superClass="com.nvidia.cuda.toolchain.input.c"/>
 								<inputType id="com.nvidia.cuda.toolchain.input.cu.1282505340" name="CUDA" superClass="com.nvidia.cuda.toolchain.input.cu"/>
 								<inputType id="com.nvidia.cuda.toolchain.input.cpp.503218396" name="C++" superClass="com.nvidia.cuda.toolchain.input.cpp"/>
@@ -86,11 +89,12 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/CudaBackend/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Avocado/include}&quot;"/>
 								</option>
-								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="nvcc.compiler.def.symbols.1442510077" superClass="nvcc.compiler.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="nvcc.compiler.def.symbols.1442510077" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="NDEBUG"/>
+									<listOptionValue builtIn="false" value="USE_CUDA=1"/>
 								</option>
-								<option id="com.nvidia.cuda.toolchain.compiler.dialect.1118802658" superClass="com.nvidia.cuda.toolchain.compiler.dialect" useByScannerDiscovery="false" value="com.nvidia.cuda.toolchain.compiler.dialect.cpp14" valueType="enumerated"/>
-								<option id="com.nvidia.cuda.toolchain.compiler.relaxed-constexpr.1539251171" superClass="com.nvidia.cuda.toolchain.compiler.relaxed-constexpr" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="com.nvidia.cuda.toolchain.compiler.dialect.1118802658" name="Language standard" superClass="com.nvidia.cuda.toolchain.compiler.dialect" useByScannerDiscovery="false" value="com.nvidia.cuda.toolchain.compiler.dialect.cpp14" valueType="enumerated"/>
+								<option id="com.nvidia.cuda.toolchain.compiler.relaxed-constexpr.1539251171" name="Allow host code to invoke __device__ constexpr functions" superClass="com.nvidia.cuda.toolchain.compiler.relaxed-constexpr" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<inputType id="com.nvidia.cuda.toolchain.input.c.143510127" name="C" superClass="com.nvidia.cuda.toolchain.input.c"/>
 								<inputType id="com.nvidia.cuda.toolchain.input.cu.905971606" name="CUDA" superClass="com.nvidia.cuda.toolchain.input.cu"/>
 								<inputType id="com.nvidia.cuda.toolchain.input.cpp.1742442212" name="C++" superClass="com.nvidia.cuda.toolchain.input.cpp"/>
