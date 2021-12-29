@@ -319,7 +319,7 @@ namespace
 	template<class Acc, typename T>
 	__global__ void kernel_reduce_broadcasted_1(T *dst, const T* src, unsigned int first_dim, unsigned int last_dim)
 	{
-		__shared__ Acc storage[32][32];
+		__shared__ Acc storage[32 * 32];
 		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
 		{
 			unsigned int idx = j + threadIdx.x;
@@ -330,18 +330,18 @@ namespace
 				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
 					acc.accumulate(src[i * last_dim + idx]);
 			}
-			storage[threadIdx.y][threadIdx.x] = acc;
+			storage[threadIdx.y * 32 + threadIdx.x] = acc;
 
 			__syncthreads();
-			block_reduce_broadcasted(reinterpret_cast<Acc*>(storage));
+			block_reduce_broadcasted(storage);
 			if (threadIdx.y == 0 and idx < last_dim)
-				dst[blockIdx.y * last_dim + idx] = storage[0][threadIdx.x];
+				dst[blockIdx.y * last_dim + idx] = storage[0 * 32 + threadIdx.x];
 		}
 	}
 	template<class Acc, typename T, typename U = T>
 	__global__ void kernel_reduce_broadcasted_2(T *dst, const T* src, U alpha, U beta, unsigned int first_dim, unsigned int last_dim)
 	{
-		__shared__ Acc storage[32][32];
+		__shared__ Acc storage[32 * 32];
 		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
 		{
 			unsigned int idx = j + threadIdx.x;
@@ -352,13 +352,13 @@ namespace
 				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
 					acc.combine_partial(reinterpret_cast<const Acc*>(src)[i * last_dim + idx]);
 			}
-			storage[threadIdx.y][threadIdx.x] = acc;
+			storage[threadIdx.y * 32 + threadIdx.x] = acc;
 
 			__syncthreads();
-			block_reduce_broadcasted(reinterpret_cast<Acc*>(storage));
+			block_reduce_broadcasted(storage);
 			if (threadIdx.y == 0 and idx < last_dim)
 			{
-				T tmp = alpha * static_cast<T>(storage[0][threadIdx.x]);
+				T tmp = alpha * static_cast<T>(storage[0 * 32 + threadIdx.x]);
 				if (beta != zero<U>())
 					tmp += beta * dst[blockIdx.y * last_dim + idx];
 				dst[blockIdx.y * last_dim + idx] = tmp;
