@@ -8,6 +8,7 @@
 #include <avocado/cuda_backend.h>
 #include <avocado/backend/backend_descriptors.hpp>
 
+#include "activations.cuh"
 #include "utilities.hpp"
 
 #include <cuda_runtime_api.h>
@@ -27,6 +28,7 @@ namespace avocado
 		avStatus_t cudaMetricFunction(avContextDescriptor_t context, avMetricType_t metricType, const avTensorDescriptor_t outputDesc,
 				const avMemoryDescriptor_t outputMem, const avTensorDescriptor_t targetDesc, const avMemoryDescriptor_t targetMem, void *result)
 		{
+			test_kernel<float> <<<1, 1, 0, 0>>>(nullptr);
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}
 

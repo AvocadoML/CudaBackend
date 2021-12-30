@@ -66,7 +66,7 @@ struct Store<int32_t, float>
 };
 
 template<typename T>
-__device__ T square(T x) noexcept
+__device__ constexpr T square(T x) noexcept
 {
 	return x * x;
 }
@@ -234,6 +234,12 @@ namespace avocado
 {
 	namespace backend
 	{
+		template<typename T>
+		__global__ void test_kernel(T *x)
+		{
+			x[0] = zero<T>();
+		}
+
 		template<typename T>
 		__device__ T activation_forward(avActivationType_t activation, T input) noexcept
 		{
