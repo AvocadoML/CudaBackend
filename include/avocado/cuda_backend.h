@@ -774,7 +774,7 @@ namespace avocado
 			 * \param[in] colDesc
 			 * \param[out] colMem
 			 */
-			DLL_PUBLIC avStatus_t cudaIm2Col(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
+			DLL_PUBLIC avStatus_t cudaIm2Row(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
 					const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t colDesc, avMemoryDescriptor_t colMem);
 
 			/**
@@ -825,7 +825,7 @@ namespace avocado
 			 * \param[in] beta Scaling factor of the output tensor.
 			 * \param[in] yDesc Output tensor descriptor.
 			 * \param[out] yMem Output memory descriptor.
-			 * \param[in] workspaceMem Memory descriptor of some persistent workspace as calculated by refPrecomputeConvolutionWorkspace method.
+			 * \param[in] workspaceMem Memory descriptor of temporary workspace.
 			 */
 			DLL_PUBLIC avStatus_t cudaConvolutionBiasActivationForward(avContextDescriptor_t context, const avConvolutionDescriptor_t config,
 					const void *alpha1, const avTensorDescriptor_t xDesc, const avMemoryDescriptor_t xMem, const avTensorDescriptor_t wDesc,
@@ -864,10 +864,11 @@ namespace avocado
 			 * \param[in] beta
 			 * \param[in] dwDesc
 			 * \param[out] dwMem
+			 * \param[in] workspaceMem
 			 */
 			DLL_PUBLIC avStatus_t cudaConvolutionUpdate(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const void *alpha,
 					const avTensorDescriptor_t xDesc, const avMemoryDescriptor_t xMem, const avTensorDescriptor_t dyDesc, const avMemoryDescriptor_t dyMem,
-					const void *beta, const avTensorDescriptor_t dwDesc, avMemoryDescriptor_t dwMem);
+					const void *beta, const avTensorDescriptor_t dwDesc, avMemoryDescriptor_t dwMem, avMemoryDescriptor_t workspaceMem);
 
 			/**
 			 * \brief Computes chosen metric function, averaged over entire batch.

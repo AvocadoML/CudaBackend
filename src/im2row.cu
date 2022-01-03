@@ -1,5 +1,5 @@
 /*
- * im2col.cu
+ * im2row.cu
  *
  *  Created on: Dec 27, 2021
  *      Author: Maciej Kozarzewski
@@ -8,6 +8,7 @@
 #include <avocado/cuda_backend.h>
 #include <avocado/backend/backend_descriptors.hpp>
 
+#include "activations.cuh"
 #include "utilities.hpp"
 
 #include <cuda_runtime_api.h>
@@ -29,7 +30,7 @@ namespace
 
 	template<typename T>
 	__launch_bounds__(256, 8)
-	__global__ void kernel_im2col(const T *input, T *matrix, uint4 input_shape, unsigned int kernel_size, bool invert)
+	__global__ void kernel_im2row(const T *input, T *matrix, uint4 input_shape, unsigned int kernel_size, bool invert)
 	{
 		unsigned int input_height = input_shape.y + kernel_size - 1;
 		unsigned int input_width = input_shape.z + kernel_size - 1;
@@ -49,7 +50,7 @@ namespace
 			in_h = in_h - kernel_size / 2;
 			in_w = in_w - kernel_size / 2;
 
-			T loaded = static_cast<T>(0);
+			T loaded = zero<T>();
 			int idx = ((in_b * input_shape.y + in_h) * input_shape.z + in_w) * filters + in_f;
 			if (in_h >= 0 && in_h < input_shape.y && in_w >= 0 && in_w < input_shape.z)
 				loaded = input[idx];
@@ -73,7 +74,7 @@ namespace avocado
 {
 	namespace backend
 	{
-		avStatus_t cudaIm2Col(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
+		avStatus_t cudaIm2Row(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
 				const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t colDesc, avMemoryDescriptor_t colMem)
 		{
 //			int last_dim = lastDim(input) * dataTypeSize(input->dtype);
