@@ -290,10 +290,11 @@ namespace
 		return result;
 	}
 
-	template<int TransformSize, int KernelSize, int Elements, typename T, int TileSize = TransformSize + KernelSize - 1>
-	__global__ void kernel_winograd_weight_transform(T* matrices, MatrixShape<TileSize> matrix_shape, const T* weights, TensorShape weights_shape, bool invert)
+	template<int TransformSize, int KernelSize, int Elements, typename DataType, typename ComputeType = DataType, int TileSize = TransformSize + KernelSize - 1>
+	__global__ void kernel_winograd_weight_transform(DataType* matrices, MatrixShape<TileSize> matrix_shape, const DataType* weights, TensorShape weights_shape,
+			bool invert)
 	{
-		SharedStorage<KernelSize, KernelSize, Elements, T> storage;
+		SharedStorage<KernelSize, KernelSize, Elements, ComputeType> storage;
 
 		for (int filter = blockIdx.x * blockDim.x + threadIdx.x; filter < weights_shape.filters; filter += gridDim.x * blockDim.x)
 		{
@@ -311,24 +312,25 @@ namespace
 
 			for (int row = threadIdx.y; row < TileSize; row += blockDim.y)
 			{
-				TileTransform<TransformType::WEIGHT, TransformSize, KernelSize, T> transform;
-				Tile<KernelSize, T> computed_row = first_transform<TileSize, KernelSize>(storage.data() + threadIdx.x, Elements, transform.get(), row);
+				TileTransform<TransformType::WEIGHT, TransformSize, KernelSize, ComputeType> transform;
+				Tile<KernelSize, ComputeType> computed_row = first_transform<TileSize, KernelSize>(storage.data() + threadIdx.x, Elements, transform.get(),
+						row);
 
 				int offset = matrix_shape.offset_at(row, 0, blockIdx.y, filter);
 				int stride = matrix_shape.stride_to_next_column();
 				for (int col = 0; col < TileSize; col++)
 				{
-					T tmp = second_transform<TileSize, KernelSize>(computed_row, transform.get(), col);
+					ComputeType tmp = second_transform<TileSize, KernelSize>(computed_row, transform.get(), col);
 					matrices[offset + col * stride] = tmp;
 				}
 			}
 			__syncthreads();
 		}
 	}
-	template<int TransformSize, int KernelSize, int Elements, typename T, int TileSize = TransformSize + KernelSize - 1>
-	__global__ void kernel_winograd_input_transform(T* matrices, MatrixShape<TileSize> matrix_shape, const T* input, TensorShape input_shape, int2 padding)
+	template<int TransformSize, int KernelSize, int Elements, typename DataType, typename ComputeType = DataType, int TileSize = TransformSize + KernelSize - 1>
+	__global__ void kernel_winograd_input_transform(DataType* matrices, MatrixShape<TileSize> matrix_shape, const DataType* input, TensorShape input_shape, int2 padding)
 	{
-		SharedStorage<TileSize, TileSize, Elements, T> storage;
+		SharedStorage<TileSize, TileSize, Elements, ComputeType> storage;
 
 		for (int tile_w = 0; tile_w < input_shape.width; tile_w += TransformSize)
 		{
@@ -355,7 +357,7 @@ namespace
 							storage.at(row, col, threadIdx.x) = input[tensor_offset];
 						}
 						else
-							storage.at(row, col, threadIdx.x) = zero<T>();
+							storage.at(row, col, threadIdx.x) = zero<ComputeType>();
 					}
 				}
 			__syncthreads();
@@ -363,26 +365,27 @@ namespace
 			if (filter < input_shape.filters)
 				for (int row = threadIdx.y; row < TileSize; row += blockDim.y)
 				{
-					TileTransform<TransformType::INPUT, TransformSize, KernelSize, T> transform;
-					Tile<TileSize, T> computed_row = first_transform<TileSize, TileSize>(storage.data() + threadIdx.x, Elements, transform.get(), row);
+					TileTransform<TransformType::INPUT, TransformSize, KernelSize, ComputeType> transform;
+					Tile<TileSize, ComputeType> computed_row = first_transform<TileSize, TileSize>(storage.data() + threadIdx.x, Elements, transform.get(), row);
 
 					int tile_index = input_shape.tile_index<TransformSize>(blockIdx.y, blockIdx.z, tile_w / TransformSize);
 					int offset = matrix_shape.offset_at(row, 0, tile_index, filter);
 					int stride = matrix_shape.stride_to_next_column();
 					for (int col = 0; col < TileSize; col++)
 					{
-						T tmp = second_transform<TileSize, TileSize>(computed_row, transform.get(), col);
+						ComputeType tmp = second_transform<TileSize, TileSize>(computed_row, transform.get(), col);
 						matrices[offset + col * stride] = tmp;
 					}
 				}
 			__syncthreads();
 		}
 	}
-	template<int TransformSize, int KernelSize, unsigned int Elements, class Activation, typename T, int TileSize = TransformSize + KernelSize - 1>
-	__global__ void kernel_winograd_output_transform(const T* matrices, MatrixShape<TileSize> matrix_shape, T* output, TensorShape output_shape, const T* add,
-			T alpha1, T alpha2, T beta, const T* bias)
+	template<int TransformSize, int KernelSize, unsigned int Elements, class Activation, typename DataType, typename ComputeType = DataType, int TileSize =
+			TransformSize + KernelSize - 1>
+	__global__ void kernel_winograd_output_transform(const DataType* matrices, MatrixShape<TileSize> matrix_shape, DataType* output, TensorShape output_shape,
+			const DataType* add, ComputeType alpha1, ComputeType alpha2, ComputeType beta, const ComputeType* bias)
 	{
-		SharedStorage<TileSize, TileSize, Elements, T> storage;
+		SharedStorage<TileSize, TileSize, Elements, ComputeType> storage;
 		for (int filter = threadIdx.x; filter < matrix_shape.filters; filter += blockDim.x)
 		{
 			int tile_index = output_shape.tile_index<TransformSize>(blockIdx.x, blockIdx.y, blockIdx.z);
@@ -397,8 +400,9 @@ namespace
 
 			for (int row = threadIdx.y; row < TransformSize; row += blockDim.y)
 			{
-				TileTransform<TransformType::OUTPUT, TransformSize, KernelSize, T> transform;
-				Tile<TileSize, T> computed_row = first_transform<TransformSize, TileSize>(storage.data() + threadIdx.x, Elements, transform.get(), row);
+				TileTransform<TransformType::OUTPUT, TransformSize, KernelSize, ComputeType> transform;
+				Tile<TileSize, ComputeType> computed_row = first_transform<TransformSize, TileSize>(storage.data() + threadIdx.x, Elements, transform.get(),
+						row);
 
 				for (int col = 0; col < TransformSize; col++)
 				{
@@ -407,7 +411,7 @@ namespace
 					int y = blockIdx.z * TransformSize + col;
 					if (x < output_shape.height and y < output_shape.width)
 					{
-						T tmp = alpha1 * second_transform<TransformSize, TileSize>(computed_row, transform.get(), col);
+						ComputeType tmp = alpha1 * second_transform<TransformSize, TileSize>(computed_row, transform.get(), col);
 
 						if (bias != nullptr)
 							tmp += bias[filter];
@@ -415,7 +419,7 @@ namespace
 						if (add != nullptr)
 							tmp += alpha2 * add[index];
 						tmp = Activation().forward(tmp);
-						if (beta != zero<T>())
+						if (beta != zero<ComputeType>())
 							tmp += beta * output[index];
 						output[index] = tmp;
 					}
@@ -424,11 +428,12 @@ namespace
 			__syncthreads();
 		}
 	}
-	template<int TransformSize, int KernelSize, int Elements, typename T, int TileSize = TransformSize + KernelSize - 1>
-	__global__ void kernel_winograd_gradient_transform(T* matrices, MatrixShape<TileSize> matrix_shape, const T* gradient, TensorShape gradient_shape)
+	template<int TransformSize, int KernelSize, int Elements, typename DataType, typename ComputeType = DataType, int TileSize = TransformSize + KernelSize - 1>
+	__global__ void kernel_winograd_gradient_transform(DataType* matrices, MatrixShape<TileSize> matrix_shape, const DataType* gradient,
+			TensorShape gradient_shape)
 	{
 		assert(blockDim.x == Elements);
-		SharedStorage<TransformSize, TransformSize, Elements, T> storage;
+		SharedStorage<TransformSize, TransformSize, Elements, ComputeType> storage;
 
 		for (int filter = threadIdx.x; filter < gradient_shape.filters; filter += Elements)
 		{
@@ -445,32 +450,34 @@ namespace
 						storage.at(row, col, threadIdx.x) = gradient[tensor_offset];
 					}
 					else
-						storage.at(row, col, threadIdx.x) = zero<T>();
+						storage.at(row, col, threadIdx.x) = zero<ComputeType>();
 				}
 			__syncthreads();
 
 			for (int row = threadIdx.y; row < TileSize; row += blockDim.y)
 			{
-				TileTransform<TransformType::GRADIENT, TransformSize, KernelSize, T> transform;
-				Tile<TransformSize, T> computed_row = first_transform<TileSize, TransformSize>(storage.data() + threadIdx.x, Elements, transform.get(), row);
+				TileTransform<TransformType::GRADIENT, TransformSize, KernelSize, ComputeType> transform;
+				Tile<TransformSize, ComputeType> computed_row = first_transform<TileSize, TransformSize>(storage.data() + threadIdx.x, Elements,
+						transform.get(), row);
 
 				int tile_index = gradient_shape.tile_index<TransformSize>(blockIdx.x, blockIdx.y, blockIdx.z);
 				int offset = matrix_shape.offset_at(row, 0, tile_index, filter);
 				int stride = matrix_shape.stride_to_next_column();
 				for (int col = 0; col < TileSize; col++)
 				{
-					T tmp = second_transform<TileSize, TransformSize>(computed_row, transform.get(), col);
+					ComputeType tmp = second_transform<TileSize, TransformSize>(computed_row, transform.get(), col);
 					matrices[offset + col * stride] = tmp;
 				}
 			}
 			__syncthreads();
 		}
 	}
-	template<int TransformSize, int KernelSize, unsigned int Elements, typename T, int TileSize = TransformSize + KernelSize - 1>
-	__global__ void kernel_winograd_update_transform(const T* matrices, MatrixShape<TileSize> matrix_shape, T* update, TensorShape update_shape, T alpha,
-			T beta)
+	template<int TransformSize, int KernelSize, unsigned int Elements, typename DataType, typename ComputeType = DataType, int TileSize = TransformSize
+			+ KernelSize - 1>
+	__global__ void kernel_winograd_update_transform(const DataType* matrices, MatrixShape<TileSize> matrix_shape, DataType* update, TensorShape update_shape,
+			ComputeType alpha, ComputeType beta)
 	{
-		SharedStorage<TileSize, TileSize, Elements, T> storage;
+		SharedStorage<TileSize, TileSize, Elements, ComputeType> storage;
 		for (int filter = threadIdx.x; filter < matrix_shape.filters; filter += blockDim.x)
 		{
 			int tile_index = update_shape.tile_index<TransformSize>(blockIdx.x, blockIdx.y, blockIdx.z);
@@ -485,15 +492,15 @@ namespace
 
 			for (int row = threadIdx.y; row < KernelSize; row += blockDim.y)
 			{
-				TileTransform<TransformType::UPDATE, TransformSize, KernelSize, T> transform;
-				Tile<TileSize, T> computed_row = first_transform<KernelSize, TileSize>(storage.data() + threadIdx.x, Elements, transform.get(), row);
+				TileTransform<TransformType::UPDATE, TransformSize, KernelSize, ComputeType> transform;
+				Tile<TileSize, ComputeType> computed_row = first_transform<KernelSize, TileSize>(storage.data() + threadIdx.x, Elements, transform.get(), row);
 
 				for (int col = 0; col < KernelSize; col++)
 				{
-					T tmp = alpha * second_transform<KernelSize, TileSize>(computed_row, transform.get(), col);
+					ComputeType tmp = alpha * second_transform<KernelSize, TileSize>(computed_row, transform.get(), col);
 
 					int index = update_shape.offset_at(blockIdx.x, row, col, filter);
-					if (beta != zero<T>())
+					if (beta != zero<ComputeType>())
 						tmp += beta * update[index];
 					update[index] = tmp;
 				}
@@ -567,7 +574,7 @@ namespace
 			cudaError_t error2 = cudaMemcpyToSymbol(float_transforms_2x2_3x3, tmp.data(), bytes(tmp), 0, cudaMemcpyHostToDevice);
 
 			std::vector<half> tmp2 = cast_to<half>(transform);
-			cudaError_t error3 = cudaMemcpyToSymbol(half_transforms_2x2_3x3, tmp2.data(), bytes(transform), 0, cudaMemcpyHostToDevice);
+			cudaError_t error3 = cudaMemcpyToSymbol(half_transforms_2x2_3x3, tmp2.data(), bytes(tmp2), 0, cudaMemcpyHostToDevice);
 		}
 		static void setup_2x2_5x5()
 		{
@@ -587,7 +594,7 @@ namespace
 			cudaError_t error2 = cudaMemcpyToSymbol(float_transforms_2x2_5x5, tmp.data(), bytes(tmp), 0, cudaMemcpyHostToDevice);
 
 			std::vector<half> tmp2 = cast_to<half>(transform);
-			cudaError_t error3 = cudaMemcpyToSymbol(half_transforms_2x2_5x5, tmp2.data(), bytes(transform), 0, cudaMemcpyHostToDevice);
+			cudaError_t error3 = cudaMemcpyToSymbol(half_transforms_2x2_5x5, tmp2.data(), bytes(tmp2), 0, cudaMemcpyHostToDevice);
 		}
 	public:
 		static avStatus_t setup()
@@ -612,6 +619,31 @@ namespace
 				return AVOCADO_STATUS_INTERNAL_ERROR;
 		}
 	};
+
+	template<typename T>
+	avStatus_t launcher_weight_transform(const ContextDescriptor& context, const ConvolutionDescriptor& config, const TensorDescriptor& wDesc, const T* wMem,
+			const TensorDescriptor& matricesDesc, T* matricesMem)
+	{
+		TensorShape tensor_shape = get_tensor_shape(wDesc);
+		MatrixShape<6> matrix_shape = get_matrix_shape<6>(matricesDesc);
+
+		int filters_out = wDesc.firstDim();
+		int filters_in = wDesc.lastDim();
+		dim3 blockDim(128, 1);
+		dim3 gridDim(gridSize<32>(filters_in, blockDim.x), filters_out);
+		cudaStream_t stream = context.getStream();
+
+		bool invert = (config.mode == AVOCADO_CROSS_CORRELATION_MODE);
+
+		switch (wDesc.dtype())
+		{
+			case AVOCADO_DTYPE_FLOAT32:
+				kernel_winograd_weight_transform<4, 3, 128> <<<gridDim, blockDim, sizeof(float) * 3 * 3 * blockDim.x, stream>>>(matricesMem, matrix_shape, wMem,
+						tensor_shape, invert);
+				break;
+		}
+		return AVOCADO_STATUS_SUCCESS;
+	}
 }
 
 namespace avocado

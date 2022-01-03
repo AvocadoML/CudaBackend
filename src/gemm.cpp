@@ -53,11 +53,23 @@ namespace avocado
 				}
 				case AVOCADO_DTYPE_FLOAT16: // ABC [float16]
 				{
-					half _alpha = getAlphaValue(alpha);
-					half _beta = getBetaValue(beta);
-					cublasStatus_t status = cublasHgemm(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<half>(bMem), LDB,
-							getPointer<half>(aMem), LDA, &_beta, getPointer<half>(cMem), LDC);
-					return convertStatus(status);
+					int sm_ver = cuda_sm_version(getContext(context).getDevice());
+					if (sm_ver == 53 or sm_ver == 60 or sm_ver >= 62)
+					{
+						half _alpha = getAlphaValue(alpha);
+						half _beta = getBetaValue(beta);
+						cublasStatus_t status = cublasHgemm(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<half>(bMem), LDB,
+								getPointer<half>(aMem), LDA, &_beta, getPointer<half>(cMem), LDC);
+						return convertStatus(status);
+					}
+					else
+					{
+						float _alpha = getAlphaValue(alpha);
+						float _beta = getBetaValue(beta);
+						cublasStatus_t status = cublasGemmEx(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<half>(bMem), CUDA_R_16F,
+								LDB, getPointer<half>(aMem), CUDA_R_16F, LDA, &_beta, getPointer<half>(cMem), CUDA_R_16F, LDC, CUDA_R_32F, CUBLAS_GEMM_DEFAULT);
+						return convertStatus(status);
+					}
 				}
 				case AVOCADO_DTYPE_FLOAT32: // ABC [float32]
 				{
@@ -119,34 +131,48 @@ namespace avocado
 			{
 				case AVOCADO_DTYPE_FLOAT16:
 				{
-					half _alpha = getAlphaValue(alpha);
-					half _beta = getBetaValue(beta);
-					cublasStatus_t status = cublasHgemmStridedBatched(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<half>(bMem), LDB,
-							strideB, getPointer<half>(aMem), LDA, strideA, &_beta, getPointer<half>(cMem), LDC, strideC, batch);
-					return convertStatus(status);
+					int sm_ver = cuda_sm_version(getContext(context).getDevice());
+					if (sm_ver == 53 or sm_ver == 60 or sm_ver >= 62)
+					{
+						half _alpha = getAlphaValue(alpha);
+						half _beta = getBetaValue(beta);
+						cublasStatus_t status = cublasHgemmStridedBatched(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<half>(bMem),
+								LDB, strideB, getPointer<half>(aMem), LDA, strideA, &_beta, getPointer<half>(cMem), LDC, strideC, batch);
+						return convertStatus(status);
+					}
+					else
+					{
+						float _alpha = getAlphaValue(alpha);
+						float _beta = getBetaValue(beta);
+						cublasStatus_t status = cublasGemmStridedBatchedEx(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<half>(bMem),
+								CUDA_R_16F, LDB, strideB, getPointer<half>(aMem), CUDA_R_16F, LDA, strideA, &_beta, getPointer<half>(cMem), CUDA_R_16F, LDC,
+								strideC, batch, CUDA_R_32F, CUBLAS_GEMM_DEFAULT);
+						return convertStatus(status);
+					}
 				}
 				case AVOCADO_DTYPE_FLOAT32:
 				{
 					float _alpha = getAlphaValue(alpha);
 					float _beta = getBetaValue(beta);
-					cublasStatus_t status = cublasSgemmStridedBatched(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<float>(bMem), LDB,
-							strideB, getPointer<float>(aMem), LDA, strideA, &_beta, getPointer<float>(cMem), LDC, strideC, batch);
+					cublasStatus_t status = cublasSgemmStridedBatched(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<float>(bMem),
+							LDB, strideB, getPointer<float>(aMem), LDA, strideA, &_beta, getPointer<float>(cMem), LDC, strideC, batch);
 					return convertStatus(status);
 				}
 				case AVOCADO_DTYPE_FLOAT64:
 				{
 					double _alpha = getAlphaValue<double>(alpha);
 					double _beta = getBetaValue<double>(beta);
-					cublasStatus_t status = cublasDgemmStridedBatched(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<double>(bMem), LDB,
-							strideB, getPointer<double>(aMem), LDA, strideA, &_beta, getPointer<double>(cMem), LDC, strideC, batch);
+					cublasStatus_t status = cublasDgemmStridedBatched(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<double>(bMem),
+							LDB, strideB, getPointer<double>(aMem), LDA, strideA, &_beta, getPointer<double>(cMem), LDC, strideC, batch);
 					return convertStatus(status);
 				}
 				case AVOCADO_DTYPE_COMPLEX32:
 				{
 					cuComplex _alpha = getAlphaValue<cuComplex>(alpha);
 					cuComplex _beta = getBetaValue<cuComplex>(beta);
-					cublasStatus_t status = cublasCgemmStridedBatched(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, getPointer<cuComplex>(bMem),
-							LDB, strideB, getPointer<cuComplex>(aMem), LDA, strideA, &_beta, getPointer<cuComplex>(cMem), LDC, strideC, batch);
+					cublasStatus_t status = cublasCgemmStridedBatched(getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha,
+							getPointer<cuComplex>(bMem), LDB, strideB, getPointer<cuComplex>(aMem), LDA, strideA, &_beta, getPointer<cuComplex>(cMem), LDC,
+							strideC, batch);
 					return convertStatus(status);
 				}
 				case AVOCADO_DTYPE_COMPLEX64:

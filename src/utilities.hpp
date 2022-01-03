@@ -37,4 +37,9 @@ static avocado::backend::avStatus_t checkForErrors() noexcept
 	return convertStatus(cudaGetLastError());
 }
 
+static int cuda_sm_version(int device)
+{
+
+}
+
 #endif /* UTILITIES_H_ */
