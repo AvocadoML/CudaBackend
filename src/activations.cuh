@@ -9,17 +9,17 @@
 #define ACTIVATIONS_CUH_
 
 template<typename T>
-__device__ T zero() noexcept
+__host__ __device__ T zero() noexcept
 {
 	return static_cast<T>(0);
 }
 template<typename T>
-__device__ T one() noexcept
+__host__ __device__ T one() noexcept
 {
 	return static_cast<T>(1);
 }
 template<typename T>
-__device__ T eps() noexcept
+__host__ __device__ T eps() noexcept
 {
 	return static_cast<T>(1.0e-16);
 }
