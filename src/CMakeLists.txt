@@ -1,12 +1,13 @@
 target_sources(AvocadoCudaBackend PRIVATE	activations.cu
 											batchnorm.cu
+											conv2d_implicit_gemm.cu
 											conversions.cu
 											convolution.cu
 											cuda_properties.cpp
 											descriptors.cu
 											dropout.cu
 											gemm.cpp
-											im2col.cu
+											im2row.cu
 											losses.cu
 											metrics.cu
 											optimizers.cu
@@ -16,4 +17,6 @@ target_sources(AvocadoCudaBackend PRIVATE	activations.cu
 											tensor_binary_op.cu
 											tensor_op.cu
 											tensor_reduction.cu
-											tensor_unary_op.cu)
+											tensor_unary_op.cu
+											winograd_fused.cu
+											winograd_nonfused.cu)

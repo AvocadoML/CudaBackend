@@ -145,6 +145,7 @@ namespace
 	}
 	__device__ void fma(Tile<int> &result, const Line<int> &lhs, const Line<int> &rhs) noexcept
 	{
+#if __CUDA_ARCH__ >= 610
 		result.x00 = __dp4a(lhs.x0, rhs.x0, result.x00);
 		result.x01 = __dp4a(lhs.x0, rhs.x1, result.x01);
 		result.x02 = __dp4a(lhs.x0, rhs.x2, result.x02);
@@ -164,6 +165,7 @@ namespace
 		result.x31 = __dp4a(lhs.x3, rhs.x1, result.x31);
 		result.x32 = __dp4a(lhs.x3, rhs.x2, result.x32);
 		result.x33 = __dp4a(lhs.x3, rhs.x3, result.x33);
+#endif
 	}
 
 	__device__ int2 split_thread_index(const int dimx) noexcept

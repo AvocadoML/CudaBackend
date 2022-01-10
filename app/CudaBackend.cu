@@ -343,10 +343,10 @@ void test_fused()
 
 void test_nonfused()
 {
-	int batch_size = 128;
-	int height = 20;
-	int width = 20;
-	int filters = 128;
+	int batch_size = 32;
+	int height = 15;
+	int width = 15;
+	int filters = 256;
 
 	int tiles_h = (height + 3) / 4;
 	int tiles_w = (width + 3) / 4;
@@ -398,7 +398,6 @@ void test_nonfused()
 	output_correct.copyFromHost(host_output);
 
 	avStatus_t status = winogradWeightTransform(context, 0, weights.getDesc(), weights.getMem(), weight_matrices.getDesc(), weight_matrices.getMem());
-//	cudaDeviceSynchronize();
 //	for (int i = 0; i < 3; i++)
 //	{
 //		for (int j = 0; j < 3; j++)
