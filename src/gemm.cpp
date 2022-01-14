@@ -4,8 +4,9 @@
  *  Created on: Sep 5, 2020
  *      Author: Maciej Kozarzewski
  */
-#include <avocado/cuda_backend.h>
-#include <avocado/backend/backend_descriptors.hpp>
+
+#include <CudaBackend/cuda_backend.h>
+#include <backend_descriptors.hpp>
 
 #include "utilities.hpp"
 

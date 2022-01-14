@@ -5,7 +5,7 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <avocado/cuda_backend.h>
+#include <CudaBackend/cuda_backend.h>
 #include "utilities.hpp"
 
 #include <cuda_runtime_api.h>
@@ -14,6 +14,7 @@
 #include <stddef.h>
 #include <cstring>
 #include <algorithm>
+#include <vector>
 #include <cassert>
 
 namespace
@@ -138,7 +139,7 @@ namespace avocado
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
-		avStatus_t cudaIsCopyPossible(bool *result, avDeviceIndex_t from, avDeviceIndex_t to)
+		avStatus_t cudaIsCopyPossible(avDeviceIndex_t from, avDeviceIndex_t to, bool *result)
 		{
 			if (result == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;
@@ -155,6 +156,27 @@ namespace avocado
 					result[0] = false;
 			}
 			return AVOCADO_STATUS_SUCCESS;
+		}
+
+		int cuda_sm_version(int device) noexcept
+		{
+			static const std::vector<int> version = []()
+			{
+				int number;
+				cudaGetNumberOfDevices(&number);
+				std::vector<int> result;
+				for (int i = 0; i < number; i++)
+				{
+					cudaDeviceProp prop;
+					cudaError_t status = cudaGetDeviceProperties(&prop, i);
+					if (status != cudaSuccess)
+						result.push_back(0);
+					else
+						result.push_back(compute_capability(prop));
+				}
+				return result;
+			}();
+			return version.at(device);
 		}
 	} /* namespace backend */
 } /* namespace avocado */

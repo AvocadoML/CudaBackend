@@ -5,10 +5,10 @@
  *      Author: Maciej Kozarzewski
  */
 
-#ifndef AVOCADO_CUDA_BACKEND_H_
-#define AVOCADO_CUDA_BACKEND_H_
+#ifndef CUDABACKEND_CUDA_BACKEND_H_
+#define CUDABACKEND_CUDA_BACKEND_H_
 
-#include <avocado/backend/backend_defs.h>
+#include <backend_defs.h>
 
 namespace avocado
 {
@@ -981,4 +981,4 @@ namespace avocado
 	} /* namespace backend */
 } /* namespace avocado */
 
-#endif /* AVOCADO_CUDA_BACKEND_H_ */
+#endif /* CUDABACKEND_CUDA_BACKEND_H_ */

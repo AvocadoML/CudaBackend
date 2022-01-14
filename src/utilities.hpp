@@ -8,10 +8,10 @@
 #ifndef UTILITIES_H_
 #define UTILITIES_H_
 
-#include <avocado/cuda_backend.h>
 #include <cuda_runtime_api.h>
 #include <cublas_v2.h>
 #include <algorithm>
+#include "../include/CudaBackend/cuda_backend.h"
 
 const int cuda_error_offset = 1000000;
 const int cublas_error_offset = 2000000;
@@ -37,9 +37,12 @@ static avocado::backend::avStatus_t checkForErrors() noexcept
 	return convertStatus(cudaGetLastError());
 }
 
-static int cuda_sm_version(int device)
+namespace avocado
 {
-
-}
+	namespace backend
+	{
+		int cuda_sm_version(int device) noexcept;
+	} /* namespace backend */
+} /* namespace avocado */
 
 #endif /* UTILITIES_H_ */

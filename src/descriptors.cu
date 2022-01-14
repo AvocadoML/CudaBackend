@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <avocado/cuda_backend.h>
-#include <avocado/backend/backend_descriptors.hpp>
+#include <CudaBackend/cuda_backend.h>
+#include <backend_descriptors.hpp>
 
 #include "utilities.hpp"
 
@@ -95,32 +95,35 @@ namespace avocado
 		avStatus_t cudaCopyMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, const avMemoryDescriptor_t src,
 				avSize_t srcOffset, avSize_t count)
 		{
-			cudaError_t status;
 			try
 			{
 				bool is_direct_copy_possible;
 				cudaIsCopyPossible(getMemory(src).device(), getMemory(dst).device(), &is_direct_copy_possible);
 				if (is_direct_copy_possible) // can use peer-to-peer copy
 				{
+					cudaError_t status;
 					if (isDefault(context))
 						status = cudaMemcpy(getPointer<int8_t>(dst) + dstOffset, getPointer<int8_t>(src) + srcOffset, count,
 								cudaMemcpyDeviceToDevice);
 					else
 						status = cudaMemcpyAsync(getPointer<int8_t>(dst) + dstOffset, getPointer<int8_t>(src) + srcOffset, count,
 								cudaMemcpyDeviceToDevice, getContext(context).getStream());
+					return convertStatus(status);
 				}
 				else // must use intermediate host buffer
 				{
 					std::unique_ptr<int8_t[]> buffer = std::make_unique<int8_t[]>(count);
-					status = cudaCopyMemoryToHost(context, buffer.get(), src, srcOffset, count);
+					avStatus_t status = cudaCopyMemoryToHost(context, buffer.get(), src, srcOffset, count);
+					if (status != AVOCADO_STATUS_SUCCESS)
+						return status;
 					status = cudaCopyMemoryFromHost(context, dst, dstOffset, buffer.get(), count);
+					if (status != AVOCADO_STATUS_SUCCESS)
+						return status;
 				}
-
 			} catch (std::exception &e)
 			{
-				return AVOCADO_STATUS_INTERNAL_ERROR;
 			}
-			return convertStatus(status);
+			return AVOCADO_STATUS_INTERNAL_ERROR;
 		}
 		avStatus_t cudaCopyMemoryToHost(avContextDescriptor_t context, void *dst, const avMemoryDescriptor_t src, avSize_t srcOffset, avSize_t bytes)
 		{

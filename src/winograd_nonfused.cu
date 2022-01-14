@@ -5,7 +5,7 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <avocado/backend/backend_descriptors.hpp>
+#include <backend_descriptors.hpp>
 
 #include "winograd.hpp"
 #include "activations.cuh"

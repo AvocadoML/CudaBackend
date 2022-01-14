@@ -39,7 +39,7 @@
 								</option>
 								<option id="com.nvidia.cuda.toolchain.compiler.dialect.321352086" name="Language standard" superClass="com.nvidia.cuda.toolchain.compiler.dialect" useByScannerDiscovery="false" value="com.nvidia.cuda.toolchain.compiler.dialect.cpp14" valueType="enumerated"/>
 								<option id="com.nvidia.cuda.toolchain.compiler.relaxed-constexpr.37034353" name="Allow host code to invoke __device__ constexpr functions" superClass="com.nvidia.cuda.toolchain.compiler.relaxed-constexpr" useByScannerDiscovery="false" value="true" valueType="boolean"/>
-								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="nvcc.compiler.def.symbols.1503116754" superClass="nvcc.compiler.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="nvcc.compiler.def.symbols.1503116754" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="USE_CUDA=1"/>
 								</option>
 								<inputType id="com.nvidia.cuda.toolchain.input.c.554822316" name="C" superClass="com.nvidia.cuda.toolchain.input.c"/>
@@ -49,7 +49,6 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="app"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="include"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="test"/>
@@ -102,7 +101,6 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="app"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="include"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="test"/>

@@ -5,14 +5,15 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <avocado/cuda_backend.h>
-#include <avocado/backend/backend_descriptors.hpp>
+#include <CudaBackend/cuda_backend.h>
+#include <backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
 
 #include <cuda_runtime_api.h>
 #include <cuda_fp16.h>
+
 
 #include <cassert>
 

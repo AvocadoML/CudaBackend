@@ -8,8 +8,8 @@
 
 #include <iostream>
 #include <cuda_runtime_api.h>
-#include <avocado/cuda_backend.h>
-#include <avocado/backend/backend_descriptors.hpp>
+#include <CudaBackend/cuda_backend.h>
+#include <backend_descriptors.hpp>
 #include <limits>
 
 #include "../src/utilities.hpp"
@@ -30,7 +30,7 @@ public:
 
 		avSize_t size_in_bytes = getTensor(desc).sizeInBytes();
 		cudaCreateMemoryDescriptor(&mem, deviceIndex, size_in_bytes);
-		cudaSetMemory(cudaGetDefaultContext(deviceIndex), mem, size_in_bytes, nullptr, 0);
+		cudaSetMemory(cudaGetDefaultContext(deviceIndex), mem, 0, size_in_bytes, nullptr, 0);
 	}
 	~TensorWrapper()
 	{
