@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.18)
 project(AvocadoCudaBackend VERSION 1.0.0 DESCRIPTION "CPU backend library" LANGUAGES CXX CUDA)
 
 option(BUILD_TESTING "Build unit tests?" OFF)
-option(BUILD_SHARED_LIBS "Build shared library?" ON)
+option(BUILD_SHARED_LIBS "Build shared library?" OFF)
+set(CMAKE_DEBUG_POSTFIX "d" CACHE STRING "Choose debug postfix" FORCE)
+set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose build type" FORCE)
+set(CMAKE_CUDA_ARCHITECTURES "61" CACHE STRING "Choose target CUDA architecture level" FORCE)
 set(PATH_TO_MAIN_LIB "${PROJECT_SOURCE_DIR}/../Avocado" CACHE STRING "Path to the main Avocado project")
 
 set(libsrc 	src/activations.cu
@@ -48,3 +51,4 @@ install(TARGETS ${LIBRARY_NAME})
 #install(DIRECTORY include/ DESTINATION include FILES_MATCHING PATTERN "*.h")
 install(FILES "include/CudaBackend/cuda_backend.h" DESTINATION include/CudaBackend)
 install(FILES "${PATH_TO_MAIN_LIB}/include/Avocado/backend/backend_defs.h" DESTINATION include/CudaBackend)
+
