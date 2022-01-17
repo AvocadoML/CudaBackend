@@ -173,6 +173,7 @@ namespace avocado
 		avStatus_t cudaConcatTensors(avContextDescriptor_t context, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem,
 				const avTensorDescriptor_t aDesc[], const avMemoryDescriptor_t aMem[], int nbTensors)
 		{
+			cuda::getContext(context).setDevice();
 			avSize_t last_dim_offset = 0;
 			for (int i = 0; i < nbTensors; i++)
 			{
@@ -205,6 +206,7 @@ namespace avocado
 		avStatus_t cudaSplitTensors(avContextDescriptor_t context, const avTensorDescriptor_t cDesc[], avMemoryDescriptor_t cMem[],
 				const avTensorDescriptor_t aDesc, const avMemoryDescriptor_t aMem, int nbTensors)
 		{
+			cuda::getContext(context).setDevice();
 			avSize_t last_dim_offset = 0;
 			for (int i = 0; i < nbTensors; i++)
 			{
@@ -237,6 +239,7 @@ namespace avocado
 		avStatus_t cudaTranspose(avContextDescriptor_t context, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem, const avTensorDescriptor_t aDesc,
 				const avMemoryDescriptor_t aMem, const int newDimOrder[])
 		{
+			cuda::getContext(context).setDevice();
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
@@ -246,6 +249,7 @@ namespace avocado
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<1024>(elements, blockDim.x));
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(cDesc).dtype())
 			{
@@ -294,6 +298,7 @@ namespace avocado
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<1024>(elements, blockDim.x));
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(cDesc).dtype())
 			{
@@ -340,6 +345,7 @@ namespace avocado
 				const avMemoryDescriptor_t aMem, const void *alpha2, const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem, const void *beta,
 				const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem, avActivationType_t activation)
 		{
+			cuda::getContext(context).setDevice();
 			return AVOCADO_STATUS_SUCCESS;
 		}
 	} /* namespace backend */

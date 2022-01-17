@@ -24,6 +24,7 @@ namespace avocado
 				const avMemoryDescriptor_t aMem, const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem, const void *beta,
 				const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem)
 		{
+			cuda::getContext(context).setDevice();
 			cublasOperation_t op_A = cuda::is_transpose(aOp) ? CUBLAS_OP_T : CUBLAS_OP_N;
 			cublasOperation_t op_B = cuda::is_transpose(bOp) ? CUBLAS_OP_T : CUBLAS_OP_N;
 
@@ -116,6 +117,7 @@ namespace avocado
 				const avTensorDescriptor_t aDesc, const avMemoryDescriptor_t aMem, const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem,
 				const void *beta, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem)
 		{
+			cuda::getContext(context).setDevice();
 			int batch = cuda::getTensor(aDesc).firstDim();
 			cublasOperation_t op_A = cuda::is_transpose(aOp) ? CUBLAS_OP_T : CUBLAS_OP_N;
 			cublasOperation_t op_B = cuda::is_transpose(bOp) ? CUBLAS_OP_T : CUBLAS_OP_N;

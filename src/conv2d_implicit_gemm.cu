@@ -350,6 +350,7 @@ namespace avocado
 			dim3 gridDim(batch_size * ((filters_out + 127) / 128), tile_h, tile_w);
 //			dim3 gridDim(1, 1, 1);
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			int2 padding { -1, -1 };
 

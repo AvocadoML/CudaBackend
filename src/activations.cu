@@ -135,8 +135,12 @@ namespace avocado
 		avStatus_t cudaActivationForward(avContextDescriptor_t context, avActivationType_t activation, const void *alpha, const avTensorDescriptor_t xDesc,
 				const avMemoryDescriptor_t xMem, const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem)
 		{
+			if (not cuda::same_device_type(context, xMem, yMem))
+				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
+
 			const unsigned int elements = cuda::getTensor(yDesc).volume();
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(yDesc).dtype())
 			{
@@ -155,8 +159,12 @@ namespace avocado
 				const avMemoryDescriptor_t yMem, const avTensorDescriptor_t dyDesc, const avMemoryDescriptor_t dyMem, const void *beta,
 				const avTensorDescriptor_t dxDesc, avMemoryDescriptor_t dxMem)
 		{
+			if (not cuda::same_device_type(context, dxMem, dyMem, yMem))
+				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
+
 			const unsigned int elements = cuda::getTensor(yDesc).volume();
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(yDesc).dtype())
 			{

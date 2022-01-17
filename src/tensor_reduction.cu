@@ -27,10 +27,6 @@ namespace
 		{
 			return zero<T>();
 		}
-		__device__ T lowest() const noexcept
-		{
-			return zero<T>();
-		}
 	};
 	template<>
 	struct limits<half>
@@ -38,10 +34,6 @@ namespace
 		__device__ float max() const noexcept
 		{
 			return 65504;
-		}
-		__device__ float lowest() const noexcept
-		{
-			return -max();
 		}
 	};
 	template<>
@@ -51,10 +43,6 @@ namespace
 		{
 			return 3.40282346638528859811704183484516925e+38f;
 		}
-		__device__ float lowest() const noexcept
-		{
-			return -max();
-		}
 	};
 	template<>
 	struct limits<double>
@@ -62,10 +50,6 @@ namespace
 		__device__ double max() const noexcept
 		{
 			return 1.79769313486231570814527423731704357e+308;
-		}
-		__device__ double lowest() const noexcept
-		{
-			return -max();
 		}
 	};
 
@@ -144,7 +128,7 @@ namespace
 	template<typename T>
 	class ReduceMax
 	{
-		T acc = limits<T>().lowest();
+		T acc = -limits<T>().max();
 	public:
 		__device__ ReduceMax() = default;
 		__device__ void accumulate(T x) noexcept
@@ -435,6 +419,7 @@ namespace avocado
 		{
 			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(aDesc), cuda::getTensor(cDesc));
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(aDesc).dtype())
 			{

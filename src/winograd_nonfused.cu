@@ -696,6 +696,7 @@ namespace avocado
 			dim3 blockDim(128, 1);
 			dim3 gridDim(gridSize<32>(filters_in, blockDim.x), filters_out);
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(wDesc).dtype())
 			{
@@ -727,6 +728,7 @@ namespace avocado
 			dim3 blockDim(128, 3);
 			dim3 gridDim((filters_in + blockDim.x - 1) / blockDim.x, batch_size, tile_h);
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(xDesc).dtype())
 			{
@@ -757,6 +759,7 @@ namespace avocado
 
 			dim3 gridDim(batch_size, tile_h, tile_w);
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(yDesc).dtype())
 			{
@@ -792,6 +795,7 @@ namespace avocado
 
 			dim3 gridDim(batch_size, tile_h, tile_w);
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(dyDesc).dtype())
 			{
@@ -821,6 +825,7 @@ namespace avocado
 			int filters_in = cuda::getTensor(dwDesc).lastDim();
 
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(dwDesc).dtype())
 			{

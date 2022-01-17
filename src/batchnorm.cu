@@ -266,6 +266,7 @@ namespace avocado
 		{
 			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(xDesc), cuda::getTensor(bDesc));
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<32>(dimensions.last, blockDim.x), gridSize<512>(dimensions.first, blockDim.y), 1);
@@ -294,6 +295,7 @@ namespace avocado
 		{
 			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(xDesc), cuda::getTensor(scaleBiasMeanVarDesc));
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<32>(dimensions.last, blockDim.x), gridSize<512>(dimensions.first, blockDim.y), 1);
@@ -327,6 +329,8 @@ namespace avocado
 
 			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(xDesc), cuda::getTensor(scaleBiasMeanVarDesc));
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
+
 			dim3 blockDim(32, 32);
 			dim3 gridDim1(gridSize<8>(dimensions.last, blockDim.x), gridSize<128>(dimensions.first, blockDim.y), 1);
 			dim3 gridDim2(gridDim1.x, 1, 1);
@@ -369,6 +373,7 @@ namespace avocado
 				const avMemoryDescriptor_t varianceMem, const void *alpha2, const void *beta2, avMemoryDescriptor_t scaleUpdateMem,
 				avMemoryDescriptor_t biasUpdateMem, double epsilon)
 		{
+			cuda::getContext(context).setDevice();
 			switch (cuda::getTensor(xDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:

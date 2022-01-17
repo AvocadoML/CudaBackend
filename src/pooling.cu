@@ -27,6 +27,7 @@ namespace avocado
 		avStatus_t cudaPoolingForward(avContextDescriptor_t context, const avPoolingDescriptor_t config, const void *alpha, const avTensorDescriptor_t xDesc,
 				const avMemoryDescriptor_t xMem, const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem)
 		{
+			cuda::getContext(context).setDevice();
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}
 
@@ -34,6 +35,7 @@ namespace avocado
 				const avMemoryDescriptor_t xMem, const avTensorDescriptor_t dyDesc, const avMemoryDescriptor_t dyMem, const void *beta,
 				const avTensorDescriptor_t dxDesc, avMemoryDescriptor_t dxMem)
 		{
+			cuda::getContext(context).setDevice();
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}
 

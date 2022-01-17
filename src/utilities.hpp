@@ -13,9 +13,6 @@
 #include <algorithm>
 #include "../include/CudaBackend/cuda_backend.h"
 
-const int cuda_error_offset = 1000000;
-const int cublas_error_offset = 2000000;
-
 template<unsigned int maxBlocks>
 unsigned int gridSize(unsigned int problemSize, unsigned int blockSize) noexcept
 {
@@ -24,12 +21,34 @@ unsigned int gridSize(unsigned int problemSize, unsigned int blockSize) noexcept
 
 static avocado::backend::avStatus_t convertStatus(cudaError_t err) noexcept
 {
-	return static_cast<avocado::backend::avStatus_t>(static_cast<int>(cuda_error_offset + err));
+	switch (err)
+	{
+		case cudaSuccess:
+			return avocado::backend::AVOCADO_STATUS_SUCCESS;
+		case cudaErrorMemoryAllocation:
+			return avocado::backend::AVOCADO_STATUS_ALLOC_FAILED;
+		case cudaErrorInsufficientDriver:
+			return avocado::backend::AVOCADO_STATUS_INSUFFICIENT_DRIVER;
+		default:
+			return avocado::backend::AVOCADO_STATUS_EXECUTION_FAILED;
+	}
 }
 
 static avocado::backend::avStatus_t convertStatus(cublasStatus_t err) noexcept
 {
-	return static_cast<avocado::backend::avStatus_t>(static_cast<int>(cublas_error_offset + err));
+	switch (err)
+	{
+		case CUBLAS_STATUS_SUCCESS:
+			return avocado::backend::AVOCADO_STATUS_SUCCESS;
+		case CUBLAS_STATUS_ALLOC_FAILED:
+			return avocado::backend::AVOCADO_STATUS_ALLOC_FAILED;
+		case CUBLAS_STATUS_ARCH_MISMATCH:
+			return avocado::backend::AVOCADO_STATUS_ARCH_MISMATCH;
+		case CUBLAS_STATUS_NOT_SUPPORTED:
+			return avocado::backend::AVOCADO_STATUS_NOT_SUPPORTED;
+		default:
+			return avocado::backend::AVOCADO_STATUS_EXECUTION_FAILED;
+	}
 }
 
 static avocado::backend::avStatus_t checkForErrors() noexcept

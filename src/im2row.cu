@@ -77,6 +77,7 @@ namespace avocado
 		avStatus_t cudaIm2Row(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
 				const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t colDesc, avMemoryDescriptor_t colMem)
 		{
+			cuda::getContext(context).setDevice();
 //			int last_dim = lastDim(input) * dataTypeSize(input->dtype);
 //			int4 input_shape { getDim(input, 0), getDim(input, 1), getDim(input, 2), last_dim };
 //			dim3 blockSize(256);

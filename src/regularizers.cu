@@ -68,6 +68,7 @@ namespace avocado
 			dim3 gridDim(512);
 			dim3 blockDim(256);
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(weightDesc).dtype())
 			{

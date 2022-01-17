@@ -447,6 +447,7 @@ namespace avocado
 		{
 			cuda::BroadcastedDimensions dimensions = getBroadcastDimensions(cuda::getTensor(aDesc), cuda::getTensor(bDesc));
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			if (cuda::is_logical(operation))
 			{

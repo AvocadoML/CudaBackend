@@ -147,6 +147,7 @@ namespace avocado
 		avStatus_t cudaOptimizerLearn(avContextDescriptor_t context, const avOptimizerDescriptor_t config, const avTensorDescriptor_t wDesc,
 				avMemoryDescriptor_t wMem, const avTensorDescriptor_t dwDesc, const avTensorDescriptor_t dwMem, avMemoryDescriptor_t workspace)
 		{
+			cuda::getContext(context).setDevice();
 			switch (cuda::getOptimizer(config).type)
 			{
 				case AVOCADO_OPTIMIZER_SGD:

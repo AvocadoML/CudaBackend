@@ -264,6 +264,7 @@ namespace avocado
 			unsigned int elements = cuda::getTensor(aDesc).volume();
 
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			if (cuda::is_logical(operation))
 			{

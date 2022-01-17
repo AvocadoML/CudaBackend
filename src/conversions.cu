@@ -313,40 +313,42 @@ namespace avocado
 		avStatus_t cudaChangeType(avContextDescriptor_t context, avMemoryDescriptor_t dst, avDataType_t dstType, const avMemoryDescriptor_t src,
 				avDataType_t srcType, avSize_t elements)
 		{
+			cuda::getContext(context).setDevice();
+
 			switch (dstType)
 			{
 				case AVOCADO_DTYPE_UINT8:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<uint8_t>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<uint8_t>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_INT8:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<int8_t>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<int8_t>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_INT16:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<int16_t>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<int16_t>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_INT32:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<int32_t>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<int32_t>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_INT64:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<int64_t>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<int64_t>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT16:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<half>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<half>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_BFLOAT16:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<bfloat16>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<bfloat16>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT32:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<float>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<float>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<double>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<double>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_COMPLEX32:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<float2>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<float2>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				case AVOCADO_DTYPE_COMPLEX64:
-					convert_helper(cuda::getContext(context).getStream(),  cuda::getPointer<double2>(dst),  cuda::getPointer(src), srcType, elements);
+					convert_helper(cuda::getContext(context).getStream(), cuda::getPointer<double2>(dst), cuda::getPointer(src), srcType, elements);
 					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;

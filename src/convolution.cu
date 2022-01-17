@@ -39,6 +39,7 @@ namespace avocado
 				const avMemoryDescriptor_t zMem, const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem,
 				const avActivationType_t activation, avMemoryDescriptor_t workspaceMem)
 		{
+			cuda::getContext(context).setDevice();
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}
 
@@ -46,6 +47,7 @@ namespace avocado
 				const avTensorDescriptor_t xDesc, const avMemoryDescriptor_t xMem, const avTensorDescriptor_t wDesc, const avMemoryDescriptor_t wMem,
 				const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem, avMemoryDescriptor_t workspaceMem)
 		{
+			cuda::getContext(context).setDevice();
 			switch (cuda::getTensor(xDesc).dtype())
 			{
 //				case AVOCADO_DTYPE_FLOAT16:
@@ -100,6 +102,7 @@ namespace avocado
 				const avTensorDescriptor_t xDesc, const avMemoryDescriptor_t xMem, const avTensorDescriptor_t dyDesc, const avMemoryDescriptor_t dyMem,
 				const void *beta, const avTensorDescriptor_t dwDesc, avMemoryDescriptor_t dwMem)
 		{
+			cuda::getContext(context).setDevice();
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}
 	} /* namespace backend */

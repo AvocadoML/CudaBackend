@@ -196,6 +196,7 @@ namespace avocado
 		avStatus_t cudaLossFunction(avContextDescriptor_t context, avLossType_t lossType, const avTensorDescriptor_t outputDesc,
 				const avMemoryDescriptor_t outputMem, const avTensorDescriptor_t targetDesc, const avMemoryDescriptor_t targetMem, void *result)
 		{
+			cuda::getContext(context).setDevice();
 			switch (lossType)
 			{
 				case AVOCADO_MEAN_SQUARE_LOSS:
@@ -216,6 +217,7 @@ namespace avocado
 				const avMemoryDescriptor_t outputMem, const avTensorDescriptor_t targetDesc, const avMemoryDescriptor_t targetMem, const void *beta,
 				const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t gradientMem, bool isFused)
 		{
+			cuda::getContext(context).setDevice();
 			switch (lossType)
 			{
 				case AVOCADO_MEAN_SQUARE_LOSS:

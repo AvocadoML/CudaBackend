@@ -59,15 +59,15 @@ namespace avocado
 	{
 		const char* cudaDecodeStatus(avStatus_t status)
 		{
-			if (status > cublas_error_offset)
-				return decode_cublas_status(static_cast<cublasStatus_t>(status - cublas_error_offset));
-			else
-			{
-				if (status > cuda_error_offset)
-					return cudaGetErrorName(static_cast<cudaError_t>(status - cuda_error_offset));
-				else
-					return "Unknown status.";
-			}
+//			if (status > cublas_error_offset)
+//				return decode_cublas_status(static_cast<cublasStatus_t>(status - cublas_error_offset));
+//			else
+//			{
+//				if (status > cuda_error_offset)
+//					return cudaGetErrorName(static_cast<cudaError_t>(status - cuda_error_offset));
+//				else
+			return "Unknown status.";
+//			}
 		}
 		avStatus_t cudaGetNumberOfDevices(int *result)
 		{

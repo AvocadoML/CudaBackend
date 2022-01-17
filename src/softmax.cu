@@ -292,6 +292,7 @@ namespace avocado
 			dim3 blockDim(256);
 			dim3 gridDim = gridSize<512>(first_dim, blockDim.x);
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(xDesc).dtype())
 			{
@@ -324,6 +325,7 @@ namespace avocado
 			dim3 blockDim(256);
 			dim3 gridDim = gridSize<512>(elements, blockDim.x);
 			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
 
 			switch (cuda::getTensor(yDesc).dtype())
 			{
