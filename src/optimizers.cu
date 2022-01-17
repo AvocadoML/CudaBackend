@@ -60,15 +60,15 @@ namespace
 		}
 	}
 
-	avStatus_t launcher_sgd(const ContextDescriptor &context, const OptimizerDescriptor &config, const TensorDescriptor &wDesc, MemoryDescriptor &wMem,
-			const MemoryDescriptor &dwMem, MemoryDescriptor& workspace)
+	avStatus_t launcher_sgd(const cuda::ContextDescriptor &context, const cuda::OptimizerDescriptor &config, const cuda::TensorDescriptor &wDesc,
+			cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor& workspace)
 	{
 		const avSize_t elements = wDesc.volume();
 		bool use_momentum = config.flags[0];
 		bool use_nesterov = config.flags[1];
 		if (use_momentum)
 		{
-			if (workspace.size() < elements * dataTypeSize(wDesc.dtype()))
+			if (workspace.size() < elements * cuda::dataTypeSize(wDesc.dtype()))
 				return AVOCADO_STATUS_INTERNAL_ERROR;
 		}
 
@@ -101,12 +101,12 @@ namespace
 		}
 		return checkForErrors();
 	}
-	avStatus_t launcher_adam(const ContextDescriptor & context, const OptimizerDescriptor& config, const TensorDescriptor & wDesc, MemoryDescriptor & wMem,
-			const MemoryDescriptor & dwMem, MemoryDescriptor & workspace)
+	avStatus_t launcher_adam(const cuda::ContextDescriptor & context, const cuda::OptimizerDescriptor& config, const cuda::TensorDescriptor & wDesc,
+			cuda::MemoryDescriptor & wMem, const cuda::MemoryDescriptor & dwMem, cuda::MemoryDescriptor & workspace)
 	{
 		const avSize_t elements = wDesc.volume();
 
-		if (workspace.size() < 2 * elements * dataTypeSize(wDesc.dtype()))
+		if (workspace.size() < 2 * elements * cuda::dataTypeSize(wDesc.dtype()))
 			return AVOCADO_STATUS_INTERNAL_ERROR;
 
 		dim3 blockDim(256);
@@ -147,12 +147,14 @@ namespace avocado
 		avStatus_t cudaOptimizerLearn(avContextDescriptor_t context, const avOptimizerDescriptor_t config, const avTensorDescriptor_t wDesc,
 				avMemoryDescriptor_t wMem, const avTensorDescriptor_t dwDesc, const avTensorDescriptor_t dwMem, avMemoryDescriptor_t workspace)
 		{
-			switch (getOptimizer(config).type)
+			switch (cuda::getOptimizer(config).type)
 			{
 				case AVOCADO_OPTIMIZER_SGD:
-					return launcher_sgd(getContext(context), getOptimizer(config), getTensor(wDesc), getMemory(wMem), getMemory(dwMem), getMemory(workspace));
+					return launcher_sgd(cuda::getContext(context), cuda::getOptimizer(config), cuda::getTensor(wDesc), cuda::getMemory(wMem),
+							cuda::getMemory(dwMem), cuda::getMemory(workspace));
 				case AVOCADO_OPTIMIZER_ADAM:
-					return launcher_adam(getContext(context), getOptimizer(config), getTensor(wDesc), getMemory(wMem), getMemory(dwMem), getMemory(workspace));
+					return launcher_adam(cuda::getContext(context), cuda::getOptimizer(config), cuda::getTensor(wDesc), cuda::getMemory(wMem),
+							cuda::getMemory(dwMem), cuda::getMemory(workspace));
 				default:
 					return AVOCADO_STATUS_BAD_PARAM;
 			}

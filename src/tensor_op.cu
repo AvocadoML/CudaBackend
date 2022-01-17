@@ -32,13 +32,13 @@ namespace
 	void concat_launcher(avContextDescriptor_t context, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem, const avTensorDescriptor_t aDesc,
 			const avMemoryDescriptor_t aMem, unsigned int offset)
 	{
-		const unsigned int first_dim = getTensor(cDesc).volumeWithoutLastDim();
-		const unsigned int dst_last_dim = getTensor(cDesc).lastDim();
-		const unsigned int src_last_dim = getTensor(aDesc).lastDim();
+		const unsigned int first_dim = cuda::getTensor(cDesc).volumeWithoutLastDim();
+		const unsigned int dst_last_dim = cuda::getTensor(cDesc).lastDim();
+		const unsigned int src_last_dim = cuda::getTensor(aDesc).lastDim();
 
 		dim3 gridDim(std::max(1u, std::min(512u, first_dim)));
 		dim3 blockDim(std::max(1u, std::min(256u, src_last_dim)));
-		kernel_concat_tensors<<<gridDim, blockDim, 0, getContext(context).getStream()>>>(getPointer<T>(cMem), getPointer<T>(aMem), first_dim, src_last_dim,
+		kernel_concat_tensors<<<gridDim, blockDim, 0, cuda::getContext(context).getStream()>>>(cuda::getPointer<T>(cMem), cuda::getPointer<T>(aMem), first_dim, src_last_dim,
 				dst_last_dim, offset);
 	}
 
@@ -53,13 +53,13 @@ namespace
 	void split_launcher(avContextDescriptor_t context, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem, const avTensorDescriptor_t aDesc,
 			const avMemoryDescriptor_t aMem, unsigned int offset)
 	{
-		const unsigned int first_dim = getTensor(cDesc).volumeWithoutLastDim();
-		const unsigned int dst_last_dim = getTensor(cDesc).lastDim();
-		const unsigned int src_last_dim = getTensor(aDesc).lastDim();
+		const unsigned int first_dim = cuda::getTensor(cDesc).volumeWithoutLastDim();
+		const unsigned int dst_last_dim = cuda::getTensor(cDesc).lastDim();
+		const unsigned int src_last_dim = cuda::getTensor(aDesc).lastDim();
 
 		dim3 gridDim(std::max(1u, std::min(512u, first_dim)));
 		dim3 blockDim(std::max(1u, std::min(256u, src_last_dim)));
-		kernel_split_tensors<<<gridDim, blockDim, 0, getContext(context).getStream()>>>(getPointer<T>(cMem), getPointer<T>(aMem), first_dim, src_last_dim,
+		kernel_split_tensors<<<gridDim, blockDim, 0, cuda::getContext(context).getStream()>>>(cuda::getPointer<T>(cMem), cuda::getPointer<T>(aMem), first_dim, src_last_dim,
 				dst_last_dim, offset);
 	}
 
@@ -176,8 +176,8 @@ namespace avocado
 			avSize_t last_dim_offset = 0;
 			for (int i = 0; i < nbTensors; i++)
 			{
-				const avSize_t src_last_dim = getTensor(aDesc[i]).lastDim();
-				switch (dataTypeSize(getTensor(cDesc).dtype()))
+				const avSize_t src_last_dim = cuda::getTensor(aDesc[i]).lastDim();
+				switch (cuda::dataTypeSize(cuda::getTensor(cDesc).dtype()))
 				{
 					case 1:
 						concat_launcher<int8_t>(context, cDesc, cMem, aDesc[i], aMem[i], last_dim_offset);
@@ -208,8 +208,8 @@ namespace avocado
 			avSize_t last_dim_offset = 0;
 			for (int i = 0; i < nbTensors; i++)
 			{
-				const avSize_t dst_last_dim = getTensor(cDesc[i]).lastDim();
-				switch (dataTypeSize(getTensor(cDesc[i]).dtype()))
+				const avSize_t dst_last_dim = cuda::getTensor(cDesc[i]).lastDim();
+				switch (cuda::dataTypeSize(cuda::getTensor(cDesc[i]).dtype()))
 				{
 					case 1:
 						concat_launcher<int8_t>(context, cDesc[i], cMem[i], aDesc, aMem, last_dim_offset);
@@ -242,45 +242,45 @@ namespace avocado
 
 		avStatus_t cudaScaleTensor(avContextDescriptor_t context, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem, const void *alpha)
 		{
-			size_t elements = getTensor(cDesc).volume();
+			size_t elements = cuda::getTensor(cDesc).volume();
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<1024>(elements, blockDim.x));
-			cudaStream_t stream = getContext(context).getStream();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(cDesc).dtype())
+			switch (cuda::getTensor(cDesc).dtype())
 			{
 				case AVOCADO_DTYPE_UINT8:
-					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<uint8_t>(cMem), getAlphaValue(alpha), elements);
+					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<uint8_t>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_INT8:
-					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<int8_t>(cMem), getAlphaValue(alpha), elements);
+					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int8_t>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_INT16:
-					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<int16_t>(cMem), getAlphaValue(alpha), elements);
+					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int16_t>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_INT32:
-					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<int32_t>(cMem), getAlphaValue(alpha), elements);
+					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int32_t>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_INT64:
-					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<int64_t>(cMem), getAlphaValue(alpha), elements);
+					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int64_t>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT16:
-					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<half>(cMem), getAlphaValue(alpha), elements);
+					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<half>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_BFLOAT16:
-//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<bfloat16>(cMem), getAlphaValue(alpha), elements);
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<bfloat16>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT32:
-					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(cMem), getAlphaValue(alpha), elements);
+					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(cMem), getAlphaValue<double>(alpha), elements);
+					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(cMem), cuda::getAlphaValue<double>(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_COMPLEX32:
-//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<cuComplex>(cMem), getAlphaValue(alpha), elements);
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<cuComplex>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				case AVOCADO_DTYPE_COMPLEX64:
-//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<uint8_t>(cMem), getAlphaValue(alpha), elements);
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<uint8_t>(cMem), cuda::getAlphaValue(alpha), elements);
 					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
@@ -290,45 +290,45 @@ namespace avocado
 
 		avStatus_t cudaAddScalarToTensor(avContextDescriptor_t context, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem, const void *scalar)
 		{
-			size_t elements = getTensor(cDesc).volume();
+			size_t elements = cuda::getTensor(cDesc).volume();
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<1024>(elements, blockDim.x));
-			cudaStream_t stream = getContext(context).getStream();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(cDesc).dtype())
+			switch (cuda::getTensor(cDesc).dtype())
 			{
 				case AVOCADO_DTYPE_UINT8:
-					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<uint8_t>(cDesc), getScalarValue<uint8_t>(scalar), elements);
+					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<uint8_t>(cDesc), cuda::getScalarValue<uint8_t>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_INT8:
-					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<int8_t>(cDesc), getScalarValue<int8_t>(scalar), elements);
+					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int8_t>(cDesc), cuda::getScalarValue<int8_t>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_INT16:
-					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<int16_t>(cDesc), getScalarValue<int16_t>(scalar), elements);
+					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int16_t>(cDesc), cuda::getScalarValue<int16_t>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_INT32:
-					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<int32_t>(cDesc), getScalarValue<int32_t>(scalar), elements);
+					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int32_t>(cDesc), cuda::getScalarValue<int32_t>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_INT64:
-					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<int64_t>(cDesc), getScalarValue<int64_t>(scalar), elements);
+					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int64_t>(cDesc), cuda::getScalarValue<int64_t>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT16:
-					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<half>(cDesc), getScalarValue<half>(scalar), elements);
+					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<half>(cDesc), cuda::getScalarValue<half>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_BFLOAT16:
-//					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<bfloat16>(cDesc), getScalarValue<bfloat16>(scalar), elements);
+//					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<bfloat16>(cDesc), cuda::getScalarValue<bfloat16>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT32:
-					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(cDesc), getScalarValue<float>(scalar), elements);
+					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(cDesc), cuda::getScalarValue<float>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(cDesc), getScalarValue<double>(scalar), elements);
+					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(cDesc), cuda::getScalarValue<double>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_COMPLEX32:
-//					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<uint8_t>(cDesc), getScalarValue<uint8_t>(scalar), elements);
+//					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<uint8_t>(cDesc), cuda::getScalarValue<uint8_t>(scalar), elements);
 					break;
 				case AVOCADO_DTYPE_COMPLEX64:
-//					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(getPointer<uint8_t>(cDesc), getScalarValue<uint8_t>(scalar), elements);
+//					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<uint8_t>(cDesc), cuda::getScalarValue<uint8_t>(scalar), elements);
 					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;

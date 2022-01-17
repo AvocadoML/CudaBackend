@@ -64,26 +64,26 @@ namespace avocado
 		avStatus_t cudaRegularizerL2(avContextDescriptor_t context, const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t gradientMem,
 				const avTensorDescriptor_t weightDesc, const avMemoryDescriptor_t weightMem, const void *coefficient, const void *offset, void *loss)
 		{
-			const unsigned int elements = getTensor(weightDesc).volume();
+			const unsigned int elements = cuda::getTensor(weightDesc).volume();
 			dim3 gridDim(512);
 			dim3 blockDim(256);
-			cudaStream_t stream = getContext(context).getStream();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(weightDesc).dtype())
+			switch (cuda::getTensor(weightDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
-					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(gradientMem), getPointer<float>(weightMem),
-							getScalarValue<float>(coefficient), getScalarValue<float>(offset), elements);
+					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(gradientMem), cuda::getPointer<float>(weightMem),
+							cuda::getScalarValue<float>(coefficient), cuda::getScalarValue<float>(offset), elements);
 					if (loss != nullptr)
 					{
-						float *workspace = getContext(context).getWorkspace().data<float>();
+						float *workspace = cuda::getContext(context).getWorkspace().data<float>();
 						dim3 gridDim(gridSize<1024>(elements, 1024));
-						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, getPointer<float>(weightMem),
-								getScalarValue<float>(coefficient), getScalarValue<float>(offset), elements);
+						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, cuda::getPointer<float>(weightMem),
+								cuda::getScalarValue<float>(coefficient), cuda::getScalarValue<float>(offset), elements);
 						if (gridDim.x > 1)
 							kernel_calculate_l2_loss_step2<<<1, 1024, 0, stream>>>(workspace);
-						cudaMemcpyAsync(loss, workspace, sizeof(float), cudaMemcpyDeviceToHost, getContext(context).getStream());
+						cudaMemcpyAsync(loss, workspace, sizeof(float), cudaMemcpyDeviceToHost, cuda::getContext(context).getStream());
 					}
 					break;
 				}

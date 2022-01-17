@@ -40,7 +40,8 @@ namespace
 
 	bool isDefault(avContextDescriptor_t context)
 	{
-		return context < cudaGetNumberOfDevices();
+		auto idx = cuda::get_descriptor_index(context);
+		return 0 <= idx and idx < cudaGetNumberOfDevices();
 	}
 }
 
@@ -51,46 +52,65 @@ namespace avocado
 
 		avStatus_t cudaCreateMemoryDescriptor(avMemoryDescriptor_t *result, avDeviceIndex_t deviceIndex, avSize_t sizeInBytes)
 		{
-			return internal::create<MemoryDescriptor>(result, deviceIndex, sizeInBytes);
+			std::cout << "USE_CUDA = " << USE_CUDA << '\n';
+			return cuda::create<cuda::MemoryDescriptor>(result, deviceIndex, sizeInBytes);
 		}
 		avStatus_t cudaCreateMemoryView(avMemoryDescriptor_t *result, const avMemoryDescriptor_t desc, avSize_t sizeInBytes, avSize_t offsetInBytes)
 		{
-			return internal::create<MemoryDescriptor>(result, getMemory(desc), sizeInBytes, offsetInBytes);
+			return cuda::create<cuda::MemoryDescriptor>(result, cuda::getMemory(desc), sizeInBytes, offsetInBytes);
 		}
 		avStatus_t cudaDestroyMemoryDescriptor(avMemoryDescriptor_t desc)
 		{
-			return internal::destroy<MemoryDescriptor>(desc);
+			return cuda::destroy<cuda::MemoryDescriptor>(desc);
 		}
 		avStatus_t cudaSetMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, avSize_t dstSize, const void *pattern,
 				avSize_t patternSize)
 		{
-			if (pattern == nullptr)
+			try
 			{
-				cudaError_t status;
-				if (isDefault(context))
-					status = cudaMemset(getPointer<int8_t>(dst) + dstOffset, 0, dstSize);
-				else
-					status = cudaMemsetAsync(getPointer<int8_t>(dst) + dstOffset, 0, dstSize, getContext(context).getStream());
-				return convertStatus(status);
-			}
+				std::cout << __PRETTY_FUNCTION__ << "\n" << context << " " << dst << " " << dstOffset << " " << dstSize << '\n';
+				std::cout << cuda::getContext(context).getDevice() << '\n';
+				cudaSetDevice(cuda::getContext(context).getDevice());
+				if (pattern == nullptr)
+				{
+					std::cout << "null pattern\n";
+					cudaError_t status;
+					if (isDefault(context))
+					{
+						std::cout << "sync\n";
+						status = cudaMemset(cuda::getPointer<int8_t>(dst) + dstOffset, 0, dstSize);
+					}
+					else
+					{
+						std::cout << "async\n";
+						status = cudaMemsetAsync(cuda::getPointer<int8_t>(dst) + dstOffset, 0, dstSize, cuda::getContext(context).getStream());
+					}
+					std::cout << cudaGetErrorName(status) << '\n';
+					return convertStatus(status);
+				}
 
-			if (dstSize % patternSize != 0 or dstOffset % patternSize != 0)
-				return AVOCADO_STATUS_BAD_PARAM;
-			switch (patternSize)
-			{
-				case 1:
-					return setall_launcher(getContext(context).getStream(), getPointer<int8_t>(dst) + dstOffset, dstSize, pattern);
-				case 2:
-					return setall_launcher(getContext(context).getStream(), getPointer<int16_t>(dst) + dstOffset / 2, dstSize, pattern);
-				case 4:
-					return setall_launcher(getContext(context).getStream(), getPointer<int32_t>(dst) + dstOffset / 4, dstSize, pattern);
-				case 8:
-					return setall_launcher(getContext(context).getStream(), getPointer<int2>(dst) + dstOffset / 8, dstSize, pattern);
-				case 16:
-					return setall_launcher(getContext(context).getStream(), getPointer<int4>(dst) + dstOffset / 16, dstSize, pattern);
-				default:
+				if (dstSize % patternSize != 0 or dstOffset % patternSize != 0)
 					return AVOCADO_STATUS_BAD_PARAM;
+				switch (patternSize)
+				{
+					case 1:
+						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int8_t>(dst) + dstOffset, dstSize, pattern);
+					case 2:
+						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int16_t>(dst) + dstOffset / 2, dstSize, pattern);
+					case 4:
+						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int32_t>(dst) + dstOffset / 4, dstSize, pattern);
+					case 8:
+						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int2>(dst) + dstOffset / 8, dstSize, pattern);
+					case 16:
+						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int4>(dst) + dstOffset / 16, dstSize, pattern);
+					default:
+						return AVOCADO_STATUS_BAD_PARAM;
+				}
+			} catch (std::exception &e)
+			{
+				std::cout << "tu leci error " << e.what() << '\n';
 			}
+			return AVOCADO_STATUS_INTERNAL_ERROR;
 		}
 		avStatus_t cudaCopyMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, const avMemoryDescriptor_t src,
 				avSize_t srcOffset, avSize_t count)
@@ -98,16 +118,16 @@ namespace avocado
 			try
 			{
 				bool is_direct_copy_possible;
-				cudaIsCopyPossible(getMemory(src).device(), getMemory(dst).device(), &is_direct_copy_possible);
+				cudaIsCopyPossible(cuda::getMemory(src).device(), cuda::getMemory(dst).device(), &is_direct_copy_possible);
 				if (is_direct_copy_possible) // can use peer-to-peer copy
 				{
 					cudaError_t status;
 					if (isDefault(context))
-						status = cudaMemcpy(getPointer<int8_t>(dst) + dstOffset, getPointer<int8_t>(src) + srcOffset, count,
+						status = cudaMemcpy(cuda::getPointer<int8_t>(dst) + dstOffset, cuda::getPointer<int8_t>(src) + srcOffset, count,
 								cudaMemcpyDeviceToDevice);
 					else
-						status = cudaMemcpyAsync(getPointer<int8_t>(dst) + dstOffset, getPointer<int8_t>(src) + srcOffset, count,
-								cudaMemcpyDeviceToDevice, getContext(context).getStream());
+						status = cudaMemcpyAsync(cuda::getPointer<int8_t>(dst) + dstOffset, cuda::getPointer<int8_t>(src) + srcOffset, count,
+								cudaMemcpyDeviceToDevice, cuda::getContext(context).getStream());
 					return convertStatus(status);
 				}
 				else // must use intermediate host buffer
@@ -133,18 +153,17 @@ namespace avocado
 			try
 			{
 				if (isDefault(context))
-					status = cudaMemcpy(dst, getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost);
+					status = cudaMemcpy(dst, cuda::getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost);
 				else
-					status = cudaMemcpyAsync(dst, getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost,
-							getContext(context).getStream());
+					status = cudaMemcpyAsync(dst, cuda::getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost,
+							cuda::getContext(context).getStream());
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
 			}
 			return convertStatus(status);
 		}
-		avStatus_t cudaCopyMemoryFromHost(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, const void *src,
-				avSize_t bytes)
+		avStatus_t cudaCopyMemoryFromHost(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, const void *src, avSize_t bytes)
 		{
 			if (src == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;
@@ -152,10 +171,10 @@ namespace avocado
 			try
 			{
 				if (isDefault(context))
-					status = cudaMemcpy(getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice);
+					status = cudaMemcpy(cuda::getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice);
 				else
-					status = cudaMemcpyAsync(getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice,
-							getContext(context).getStream());
+					status = cudaMemcpyAsync(cuda::getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice,
+							cuda::getContext(context).getStream());
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -184,25 +203,25 @@ namespace avocado
 				int tmp = 0;
 				cudaError_t status = cudaGetDeviceCount(&tmp);
 				if (status != cudaSuccess)
-					return 0;
+				return 0;
 				else
-					return tmp;
+				return tmp;
 			}();
 			return result;
 		}
 
 		avStatus_t cudaCreateContextDescriptor(avContextDescriptor_t *result, avDeviceIndex_t deviceIndex)
 		{
-			return internal::create<ContextDescriptor>(result, deviceIndex);
+			return cuda::create<cuda::ContextDescriptor>(result, deviceIndex);
 		}
 		avStatus_t cudaDestroyContextDescriptor(avContextDescriptor_t desc)
 		{
-			return internal::destroy<ContextDescriptor>(desc);
+			return cuda::destroy<cuda::ContextDescriptor>(desc);
 		}
 		avContextDescriptor_t cudaGetDefaultContext(avDeviceIndex_t deviceIndex)
 		{
 			if (deviceIndex >= 0 and deviceIndex < cudaGetNumberOfDevices())
-				return static_cast<avContextDescriptor_t>(deviceIndex);
+				return cuda::create_descriptor(deviceIndex, cuda::ContextDescriptor::descriptor_type);
 			else
 				return static_cast<avContextDescriptor_t>(-1);
 		}
@@ -210,7 +229,7 @@ namespace avocado
 		{
 			try
 			{
-				cudaError_t status = cudaStreamSynchronize(getContext(context).getStream());
+				cudaError_t status = cudaStreamSynchronize(cuda::getContext(context).getStream());
 				if (status != cudaSuccess)
 					return AVOCADO_STATUS_INTERNAL_ERROR;
 			} catch (std::exception &e)
@@ -225,7 +244,7 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-				cudaError_t status = cudaStreamQuery(getContext(context).getStream());
+				cudaError_t status = cudaStreamQuery(cuda::getContext(context).getStream());
 				if (status == cudaSuccess)
 					result[0] = true;
 				else
@@ -247,11 +266,11 @@ namespace avocado
 
 		avStatus_t cudaCreateTensorDescriptor(avTensorDescriptor_t *result)
 		{
-			return internal::create<TensorDescriptor>(result);
+			return cuda::create<cuda::TensorDescriptor>(result);
 		}
 		avStatus_t cudaDestroyTensorDescriptor(avTensorDescriptor_t desc)
 		{
-			return internal::destroy<TensorDescriptor>(desc);
+			return cuda::destroy<cuda::TensorDescriptor>(desc);
 		}
 		avStatus_t cudaSetTensorDescriptor(avTensorDescriptor_t desc, avDataType_t dtype, int nbDims, const int dimensions[])
 		{
@@ -259,7 +278,7 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-				getTensor(desc).set(dtype, nbDims, dimensions);
+				cuda::getTensor(desc).set(dtype, nbDims, dimensions);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -270,7 +289,7 @@ namespace avocado
 		{
 			try
 			{
-				getTensor(desc).get(dtype, nbDims, dimensions);
+				cuda::getTensor(desc).get(dtype, nbDims, dimensions);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -280,18 +299,18 @@ namespace avocado
 
 		avStatus_t cudaCreateConvolutionDescriptor(avConvolutionDescriptor_t *result)
 		{
-			return internal::create<ConvolutionDescriptor>(result);
+			return cuda::create<cuda::ConvolutionDescriptor>(result);
 		}
 		avStatus_t cudaDestroyConvolutionDescriptor(avConvolutionDescriptor_t desc)
 		{
-			return internal::destroy<ConvolutionDescriptor>(desc);
+			return cuda::destroy<cuda::ConvolutionDescriptor>(desc);
 		}
-		avStatus_t cudaSetConvolutionDescriptor(avConvolutionDescriptor_t desc, avConvolutionMode_t mode, int nbDims, const int padding[],
-				const int strides[], const int dilation[], int groups, const void *paddingValue)
+		avStatus_t cudaSetConvolutionDescriptor(avConvolutionDescriptor_t desc, avConvolutionMode_t mode, int nbDims, const int padding[], const int strides[],
+				const int dilation[], int groups, const void *paddingValue)
 		{
 			try
 			{
-				getConvolution(desc).set(mode, nbDims, strides, padding, dilation, groups, paddingValue);
+				cuda::getConvolution(desc).set(mode, nbDims, strides, padding, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -303,7 +322,7 @@ namespace avocado
 		{
 			try
 			{
-				getConvolution(desc).get(mode, nbDims, strides, padding, dilation, groups, paddingValue);
+				cuda::getConvolution(desc).get(mode, nbDims, strides, padding, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -313,17 +332,17 @@ namespace avocado
 
 		avStatus_t cudaCreateOptimizerDescriptor(avOptimizerDescriptor_t *result)
 		{
-			return internal::create<OptimizerDescriptor>(result);
+			return cuda::create<cuda::OptimizerDescriptor>(result);
 		}
 		avStatus_t cudaDestroyOptimizerDescriptor(avOptimizerDescriptor_t desc)
 		{
-			return internal::destroy<OptimizerDescriptor>(desc);
+			return cuda::destroy<cuda::OptimizerDescriptor>(desc);
 		}
 		avStatus_t cudaSetOptimizerSGD(avOptimizerDescriptor_t desc, double learningRate, bool useMomentum, bool useNesterov, double beta1)
 		{
 			try
 			{
-				getOptimizer(desc).set_sgd(learningRate, useMomentum, useNesterov, beta1);
+				cuda::getOptimizer(desc).set_sgd(learningRate, useMomentum, useNesterov, beta1);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -334,7 +353,7 @@ namespace avocado
 		{
 			try
 			{
-				getOptimizer(desc).get_sgd(learningRate, useMomentum, useNesterov, beta1);
+				cuda::getOptimizer(desc).get_sgd(learningRate, useMomentum, useNesterov, beta1);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -345,7 +364,7 @@ namespace avocado
 		{
 			try
 			{
-				getOptimizer(desc).set_adam(learningRate, beta1, beta2);
+				cuda::getOptimizer(desc).set_adam(learningRate, beta1, beta2);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -356,7 +375,7 @@ namespace avocado
 		{
 			try
 			{
-				getOptimizer(desc).get_adam(learningRate, beta1, beta2);
+				cuda::getOptimizer(desc).get_adam(learningRate, beta1, beta2);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -369,7 +388,7 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-				getOptimizer(desc).get_type(type);
+				cuda::getOptimizer(desc).get_type(type);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -382,7 +401,7 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-				getOptimizer(desc).get_workspace_size(result, getTensor(wDesc));
+				cuda::getOptimizer(desc).get_workspace_size(result, cuda::getTensor(wDesc));
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;

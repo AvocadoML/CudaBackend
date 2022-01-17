@@ -46,7 +46,7 @@ namespace avocado
 				const avTensorDescriptor_t xDesc, const avMemoryDescriptor_t xMem, const avTensorDescriptor_t wDesc, const avMemoryDescriptor_t wMem,
 				const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem, avMemoryDescriptor_t workspaceMem)
 		{
-			switch (getTensor(xDesc).dtype())
+			switch (cuda::getTensor(xDesc).dtype())
 			{
 //				case AVOCADO_DTYPE_FLOAT16:
 //					kernel_conv3x3_4x4_weight_transform<<<gridSize, blockSize, 0, stream>>>(reinterpret_cast<half*>(matrices->data),

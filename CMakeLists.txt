@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.18)
 project(AvocadoCudaBackend VERSION 1.0.0 DESCRIPTION "CPU backend library" LANGUAGES CXX CUDA)
 
 option(BUILD_TESTING "Build unit tests?" OFF)
-option(BUILD_SHARED_LIBS "Build shared library?" OFF)
+option(BUILD_SHARED_LIBS "Build shared library?" ON)
 set(CMAKE_DEBUG_POSTFIX "d" CACHE STRING "Choose debug postfix" FORCE)
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose build type" FORCE)
 set(CMAKE_CUDA_ARCHITECTURES "61" CACHE STRING "Choose target CUDA architecture level" FORCE)
@@ -29,7 +29,8 @@ set(libsrc 	src/activations.cu
 			src/tensor_reduction.cu
 			src/tensor_unary_op.cu
 			src/winograd_fused.cu
-			src/winograd_nonfused.cu)
+			src/winograd_nonfused.cu
+			${PATH_TO_MAIN_LIB}/include/Avocado/backend/backend_descriptors.cpp)
 			
 if(BUILD_SHARED_LIBS)
   set(LIBRARY_NAME "AvocadoCudaBackend")

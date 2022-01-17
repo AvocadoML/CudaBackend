@@ -24,4 +24,21 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>include/CudaBackend/backend_defs.h</name>
+			<type>1</type>
+			<location>/home/maciek/Avocado/Avocado/include/Avocado/backend/backend_defs.h</location>
+		</link>
+		<link>
+			<name>include/CudaBackend/backend_descriptors.cpp</name>
+			<type>1</type>
+			<location>/home/maciek/Avocado/Avocado/include/Avocado/backend/backend_descriptors.cpp</location>
+		</link>
+		<link>
+			<name>include/CudaBackend/backend_descriptors.hpp</name>
+			<type>1</type>
+			<location>/home/maciek/Avocado/Avocado/include/Avocado/backend/backend_descriptors.hpp</location>
+		</link>
+	</linkedResources>
 </projectDescription>

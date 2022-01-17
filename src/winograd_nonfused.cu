@@ -328,7 +328,8 @@ namespace
 		}
 	}
 	template<int TransformSize, int KernelSize, int Elements, typename DataType, typename ComputeType = DataType, int TileSize = TransformSize + KernelSize - 1>
-	__global__ void kernel_winograd_input_transform(DataType* matrices, MatrixShape<TileSize> matrix_shape, const DataType* input, TensorShape input_shape, int2 padding)
+	__global__ void kernel_winograd_input_transform(DataType* matrices, MatrixShape<TileSize> matrix_shape, const DataType* input, TensorShape input_shape,
+			int2 padding)
 	{
 		SharedStorage<TileSize, TileSize, Elements, ComputeType> storage;
 
@@ -366,7 +367,8 @@ namespace
 				for (int row = threadIdx.y; row < TileSize; row += blockDim.y)
 				{
 					TileTransform<TransformType::INPUT, TransformSize, KernelSize, ComputeType> transform;
-					Tile<TileSize, ComputeType> computed_row = first_transform<TileSize, TileSize>(storage.data() + threadIdx.x, Elements, transform.get(), row);
+					Tile<TileSize, ComputeType> computed_row = first_transform<TileSize, TileSize>(storage.data() + threadIdx.x, Elements, transform.get(),
+							row);
 
 					int tile_index = input_shape.tile_index<TransformSize>(blockIdx.y, blockIdx.z, tile_w / TransformSize);
 					int offset = matrix_shape.offset_at(row, 0, tile_index, filter);
@@ -509,12 +511,12 @@ namespace
 		}
 	}
 
-	TensorShape get_tensor_shape(const TensorDescriptor &desc)
+	TensorShape get_tensor_shape(const cuda::TensorDescriptor &desc)
 	{
 		return TensorShape( { desc.dimension(0), desc.dimension(1), desc.dimension(2), desc.dimension(3) });
 	}
 	template<int TileSize>
-	MatrixShape<TileSize> get_matrix_shape(const TensorDescriptor &desc)
+	MatrixShape<TileSize> get_matrix_shape(const cuda::TensorDescriptor &desc)
 	{
 		return MatrixShape<TileSize>( { desc.dimension(1), desc.dimension(2) });
 	}
@@ -549,15 +551,15 @@ namespace
 					/*  * update */, 1.0, 1.0, 1.0, 0.25, 0.25, 0.0, 0.0, 1.0, -1.0, 0.5, -0.5, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0 };
 
 			cudaError_t error1 = cudaMemcpyToSymbol(double_transforms_4x4_3x3, transform.data(), bytes(transform), 0, cudaMemcpyHostToDevice);
-			CHECK_CUDA_ERROR(error1);
+//			CHECK_CUDA_ERROR(error1); FIXME
 
 			std::vector<float> tmp = cast_to<float>(transform);
 			cudaError_t error2 = cudaMemcpyToSymbol(float_transforms_4x4_3x3, tmp.data(), bytes(tmp), 0, cudaMemcpyHostToDevice);
-			CHECK_CUDA_ERROR(error2);
+//			CHECK_CUDA_ERROR(error2); FIXME
 
 			std::vector<half> tmp2 = cast_to<half>(transform);
 			cudaError_t error3 = cudaMemcpyToSymbol(half_transforms_4x4_3x3, tmp2.data(), bytes(tmp2), 0, cudaMemcpyHostToDevice);
-			CHECK_CUDA_ERROR(error3);
+//			CHECK_CUDA_ERROR(error3); FIXME
 		}
 		static void setup_2x2_3x3()
 		{
@@ -621,8 +623,8 @@ namespace
 	};
 
 	template<typename T>
-	avStatus_t launcher_weight_transform(const ContextDescriptor& context, const ConvolutionDescriptor& config, const TensorDescriptor& wDesc, const T* wMem,
-			const TensorDescriptor& matricesDesc, T* matricesMem)
+	avStatus_t launcher_weight_transform(const cuda::ContextDescriptor& context, const cuda::ConvolutionDescriptor& config, const cuda::TensorDescriptor& wDesc,
+			const T* wMem, const cuda::TensorDescriptor& matricesDesc, T* matricesMem)
 	{
 		TensorShape tensor_shape = get_tensor_shape(wDesc);
 		MatrixShape<6> matrix_shape = get_matrix_shape<6>(matricesDesc);
@@ -651,16 +653,16 @@ namespace avocado
 	namespace backend
 	{
 
-		avSize_t winogradGetWorkspaceSize(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t xDesc,
+		avSize_t cuda_winogradGetWorkspaceSize(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t xDesc,
 				const avTensorDescriptor_t wDesc)
 		{
-			if (getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_EXPLICIT_GEMM)
+			if (cuda::getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_EXPLICIT_GEMM)
 			{
 				return 0; // TODO
 			}
-			if (getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_WINOGRAD)
+			if (cuda::getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_WINOGRAD)
 			{
-				switch (getTensor(wDesc).dtype())
+				switch (cuda::getTensor(wDesc).dtype())
 				{
 					case AVOCADO_DTYPE_INT8:
 						return 0; // TODO
@@ -671,72 +673,72 @@ namespace avocado
 						return 0; // TODO
 				}
 			}
-			if (getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_WINOGRAD_FUSED)
+			if (cuda::getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_WINOGRAD_FUSED)
 			{
-				if (getTensor(wDesc).dtype() == AVOCADO_DTYPE_INT8)
+				if (cuda::getTensor(wDesc).dtype() == AVOCADO_DTYPE_INT8)
 					return 0; // TODO
 			}
 			return 0;
 		}
 
-		avStatus_t winogradWeightTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t wDesc,
+		avStatus_t cuda_winogradWeightTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t wDesc,
 				const avMemoryDescriptor_t wMem, const avTensorDescriptor_t matricesDesc, avMemoryDescriptor_t matricesMem)
 		{
 			avStatus_t status = TransformSetup::setup();
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			TensorShape tensor_shape = get_tensor_shape(getTensor(wDesc));
-			MatrixShape<6> matrix_shape = get_matrix_shape<6>(getTensor(matricesDesc));
+			TensorShape tensor_shape = get_tensor_shape(cuda::getTensor(wDesc));
+			MatrixShape<6> matrix_shape = get_matrix_shape<6>(cuda::getTensor(matricesDesc));
 
-			int filters_out = getTensor(wDesc).firstDim();
-			int filters_in = getTensor(wDesc).lastDim();
+			int filters_out = cuda::getTensor(wDesc).firstDim();
+			int filters_in = cuda::getTensor(wDesc).lastDim();
 			dim3 blockDim(128, 1);
 			dim3 gridDim(gridSize<32>(filters_in, blockDim.x), filters_out);
-			cudaStream_t stream = getContext(context).getStream();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(wDesc).dtype())
+			switch (cuda::getTensor(wDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 					kernel_winograd_weight_transform<4, 3, 128> <<<gridDim, blockDim, sizeof(float) * 3 * 3 * blockDim.x, stream>>>(
-							getPointer<float>(matricesMem), matrix_shape, getPointer<float>(wMem), tensor_shape, false);
+							cuda::getPointer<float>(matricesMem), matrix_shape, cuda::getPointer<float>(wMem), tensor_shape, false);
 					break;
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
-		avStatus_t winogradInputTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t xDesc,
+		avStatus_t cuda_winogradInputTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t xDesc,
 				const avMemoryDescriptor_t xMem, const avTensorDescriptor_t matricesDesc, avMemoryDescriptor_t matricesMem)
 		{
 			avStatus_t status = TransformSetup::setup();
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			TensorShape tensor_shape = get_tensor_shape(getTensor(xDesc));
-			MatrixShape<6> matrix_shape = get_matrix_shape<6>(getTensor(matricesDesc));
+			TensorShape tensor_shape = get_tensor_shape(cuda::getTensor(xDesc));
+			MatrixShape<6> matrix_shape = get_matrix_shape<6>(cuda::getTensor(matricesDesc));
 
-			int batch_size = getTensor(xDesc).dimension(0);
-			int tile_h = (getTensor(xDesc).dimension(1) + 3) / 4;
-			int tile_w = (getTensor(xDesc).dimension(2) + 3) / 4;
-			int filters_in = getTensor(xDesc).dimension(3);
+			int batch_size = cuda::getTensor(xDesc).dimension(0);
+			int tile_h = (cuda::getTensor(xDesc).dimension(1) + 3) / 4;
+			int tile_w = (cuda::getTensor(xDesc).dimension(2) + 3) / 4;
+			int filters_in = cuda::getTensor(xDesc).dimension(3);
 
 			int2 padding { -1, -1 };
 
 			dim3 blockDim(128, 3);
 			dim3 gridDim((filters_in + blockDim.x - 1) / blockDim.x, batch_size, tile_h);
-			cudaStream_t stream = getContext(context).getStream();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(xDesc).dtype())
+			switch (cuda::getTensor(xDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 					kernel_winograd_input_transform<4, 3, 128> <<<gridDim, blockDim, 6 * 6 * blockDim.x * sizeof(float), stream>>>(
-							getPointer<float>(matricesMem), matrix_shape, getPointer<float>(xMem), tensor_shape, padding);
+							cuda::getPointer<float>(matricesMem), matrix_shape, cuda::getPointer<float>(xMem), tensor_shape, padding);
 					break;
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
-		avStatus_t winogradOutputTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const void *alpha1,
+		avStatus_t cuda_winogradOutputTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const void *alpha1,
 				const avTensorDescriptor_t matricesDesc, const avMemoryDescriptor_t matricesMem, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem,
 				const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem, const void *alpha2, const avTensorDescriptor_t zDesc,
 				const avMemoryDescriptor_t zMem, const void *beta, const avActivationType_t activation)
@@ -745,66 +747,66 @@ namespace avocado
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			TensorShape tensor_shape = get_tensor_shape(getTensor(yDesc));
-			MatrixShape<6> matrix_shape = get_matrix_shape<6>(getTensor(matricesDesc));
+			TensorShape tensor_shape = get_tensor_shape(cuda::getTensor(yDesc));
+			MatrixShape<6> matrix_shape = get_matrix_shape<6>(cuda::getTensor(matricesDesc));
 
-			int batch_size = getTensor(yDesc).dimension(0);
-			int tile_h = (getTensor(yDesc).dimension(1) + 3) / 4;
-			int tile_w = (getTensor(yDesc).dimension(2) + 3) / 4;
-			int filters_in = getTensor(yDesc).dimension(3);
+			int batch_size = cuda::getTensor(yDesc).dimension(0);
+			int tile_h = (cuda::getTensor(yDesc).dimension(1) + 3) / 4;
+			int tile_w = (cuda::getTensor(yDesc).dimension(2) + 3) / 4;
+			int filters_in = cuda::getTensor(yDesc).dimension(3);
 
 			dim3 gridDim(batch_size, tile_h, tile_w);
-			cudaStream_t stream = getContext(context).getStream();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(yDesc).dtype())
+			switch (cuda::getTensor(yDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
 					dim3 blockDim(128, 4);
-					float _alpha1 = getAlphaValue(alpha1);
-					float _alpha2 = getAlphaValue(alpha2);
-					float _beta = getBetaValue(beta);
+					float _alpha1 = cuda::getAlphaValue(alpha1);
+					float _alpha2 = cuda::getAlphaValue(alpha2);
+					float _beta = cuda::getBetaValue(beta);
 					kernel_winograd_output_transform<4, 3, 128, ActivationLinear<float>> <<<gridDim, blockDim, 6 * 6 * blockDim.x * sizeof(float), stream>>>(
-							getPointer<float>(matricesMem), matrix_shape, getPointer<float>(yMem), tensor_shape, getPointer<float>(zMem), _alpha1, _alpha2,
-							_beta, getPointer<float>(bMem));
+							cuda::getPointer<float>(matricesMem), matrix_shape, cuda::getPointer<float>(yMem), tensor_shape, cuda::getPointer<float>(zMem),
+							_alpha1, _alpha2, _beta, cuda::getPointer<float>(bMem));
 				}
 					break;
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
-		avStatus_t winogradGradientTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t dyDesc,
+		avStatus_t cuda_winogradGradientTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t dyDesc,
 				const avMemoryDescriptor_t dyMem, const avTensorDescriptor_t matricesDesc, avMemoryDescriptor_t matricesMem)
 		{
 			avStatus_t status = TransformSetup::setup();
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			TensorShape tensor_shape = get_tensor_shape(getTensor(dyDesc));
-			MatrixShape<6> matrix_shape = get_matrix_shape<6>(getTensor(matricesDesc));
+			TensorShape tensor_shape = get_tensor_shape(cuda::getTensor(dyDesc));
+			MatrixShape<6> matrix_shape = get_matrix_shape<6>(cuda::getTensor(matricesDesc));
 
-			int batch_size = getTensor(dyDesc).dimension(0);
-			int tile_h = (getTensor(dyDesc).dimension(1) + 3) / 4;
-			int tile_w = (getTensor(dyDesc).dimension(2) + 3) / 4;
-			int filters_in = getTensor(dyDesc).dimension(3);
+			int batch_size = cuda::getTensor(dyDesc).dimension(0);
+			int tile_h = (cuda::getTensor(dyDesc).dimension(1) + 3) / 4;
+			int tile_w = (cuda::getTensor(dyDesc).dimension(2) + 3) / 4;
+			int filters_in = cuda::getTensor(dyDesc).dimension(3);
 
 			dim3 gridDim(batch_size, tile_h, tile_w);
-			cudaStream_t stream = getContext(context).getStream();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(dyDesc).dtype())
+			switch (cuda::getTensor(dyDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
 					dim3 blockDim(128, 2);
 					kernel_winograd_gradient_transform<4, 3, 128> <<<gridDim, blockDim, 4 * 4 * blockDim.x * sizeof(float), stream>>>(
-							getPointer<float>(matricesMem), matrix_shape, getPointer<float>(dyMem), tensor_shape);
+							cuda::getPointer<float>(matricesMem), matrix_shape, cuda::getPointer<float>(dyMem), tensor_shape);
 					break;
 				}
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
-		avStatus_t winogradUpdateTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const void *alpha,
+		avStatus_t cuda_winogradUpdateTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const void *alpha,
 				const avTensorDescriptor_t matricesDesc, const avMemoryDescriptor_t matricesMem, const void *beta, const avTensorDescriptor_t dwDesc,
 				avMemoryDescriptor_t dwMem)
 		{
@@ -812,24 +814,24 @@ namespace avocado
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			TensorShape tensor_shape = get_tensor_shape(getTensor(dwDesc));
-			MatrixShape<6> matrix_shape = get_matrix_shape<6>(getTensor(matricesDesc));
+			TensorShape tensor_shape = get_tensor_shape(cuda::getTensor(dwDesc));
+			MatrixShape<6> matrix_shape = get_matrix_shape<6>(cuda::getTensor(matricesDesc));
 
-			int filters_out = getTensor(dwDesc).firstDim();
-			int filters_in = getTensor(dwDesc).lastDim();
+			int filters_out = cuda::getTensor(dwDesc).firstDim();
+			int filters_in = cuda::getTensor(dwDesc).lastDim();
 
-			cudaStream_t stream = getContext(context).getStream();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(dwDesc).dtype())
+			switch (cuda::getTensor(dwDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
 					dim3 blockDim(128, 3);
 					dim3 gridDim(gridSize<32>(filters_in, blockDim.x), filters_out);
-					float _alpha = getAlphaValue(alpha);
-					float _beta = getBetaValue(beta);
+					float _alpha = cuda::getAlphaValue(alpha);
+					float _beta = cuda::getBetaValue(beta);
 					kernel_winograd_update_transform<4, 3, 128> <<<gridDim, blockDim, sizeof(float) * 6 * 6 * blockDim.x, stream>>>(
-							getPointer<float>(matricesMem), matrix_shape, getPointer<float>(dwMem), tensor_shape, _alpha, _beta);
+							cuda::getPointer<float>(matricesMem), matrix_shape, cuda::getPointer<float>(dwMem), tensor_shape, _alpha, _beta);
 					break;
 				}
 			}

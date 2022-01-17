@@ -135,23 +135,23 @@ namespace
 	void dispatch_loss(avContextDescriptor_t context, const avTensorDescriptor_t outputDesc, const avMemoryDescriptor_t outputMem,
 			const avMemoryDescriptor_t targetMem, void *result, Function fn) noexcept
 	{
-		const unsigned int elements = getTensor(outputDesc).volume();
-		const unsigned int batch_size = getTensor(outputDesc).firstDim();
-		cudaStream_t stream = getContext(context).getStream();
+		const unsigned int elements = cuda::getTensor(outputDesc).volume();
+		const unsigned int batch_size = cuda::getTensor(outputDesc).firstDim();
+		cudaStream_t stream = cuda::getContext(context).getStream();
 
-		switch (getTensor(outputDesc).dtype())
+		switch (cuda::getTensor(outputDesc).dtype())
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				float * workspace = getContext(context).getWorkspace().data<float>();
-				launch_reduce_op(stream, getPointer<float>(outputMem), getPointer<float>(targetMem), workspace, elements, 1.0f / batch_size, fn);
+				float * workspace = cuda::getContext(context).getWorkspace().data<float>();
+				launch_reduce_op(stream, cuda::getPointer<float>(outputMem), cuda::getPointer<float>(targetMem), workspace, elements, 1.0f / batch_size, fn);
 				cudaMemcpyAsync(result, workspace, sizeof(float), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				double * workspace = getContext(context).getWorkspace().data<double>();
-				launch_reduce_op(stream, getPointer<double>(outputMem), getPointer<double>(targetMem), workspace, elements, 1.0 / batch_size, fn);
+				double * workspace = cuda::getContext(context).getWorkspace().data<double>();
+				launch_reduce_op(stream, cuda::getPointer<double>(outputMem), cuda::getPointer<double>(targetMem), workspace, elements, 1.0 / batch_size, fn);
 				cudaMemcpyAsync(result, workspace, sizeof(double), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
@@ -162,25 +162,25 @@ namespace
 	void dispatch_gradient(avContextDescriptor_t context, const void *alpha, const avTensorDescriptor_t outputDesc, const avMemoryDescriptor_t outputMem,
 			const avMemoryDescriptor_t targetMem, const void *beta, avMemoryDescriptor_t gradientMem, Function fn) noexcept
 	{
-		const unsigned int elements = getTensor(outputDesc).volume();
-		const unsigned int batch_size = getTensor(outputDesc).firstDim();
-		cudaStream_t stream = getContext(context).getStream();
+		const unsigned int elements = cuda::getTensor(outputDesc).volume();
+		const unsigned int batch_size = cuda::getTensor(outputDesc).firstDim();
+		cudaStream_t stream = cuda::getContext(context).getStream();
 
 		dim3 blockDim(256);
 		dim3 gridDim(gridSize<1024>(elements, blockDim.x));
 
-		switch (getTensor(outputDesc).dtype())
+		switch (cuda::getTensor(outputDesc).dtype())
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(gradientMem), getPointer<float>(outputMem),
-						getPointer<float>(targetMem), elements, getAlphaValue(alpha) / batch_size, getBetaValue(beta), fn);
+				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(gradientMem), cuda::getPointer<float>(outputMem),
+						cuda::getPointer<float>(targetMem), elements, cuda::getAlphaValue(alpha) / batch_size, cuda::getBetaValue(beta), fn);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(gradientMem), getPointer<double>(outputMem),
-						getPointer<double>(targetMem), elements, getAlphaValue<double>(alpha) / batch_size, getBetaValue<double>(beta), fn);
+				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(gradientMem), cuda::getPointer<double>(outputMem),
+						cuda::getPointer<double>(targetMem), elements, cuda::getAlphaValue<double>(alpha) / batch_size, cuda::getBetaValue<double>(beta), fn);
 				break;
 			}
 		}

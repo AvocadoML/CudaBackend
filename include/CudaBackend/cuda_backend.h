@@ -8,7 +8,7 @@
 #ifndef CUDABACKEND_CUDA_BACKEND_H_
 #define CUDABACKEND_CUDA_BACKEND_H_
 
-#include <backend_defs.h>
+#include "backend_defs.h"
 
 namespace avocado
 {

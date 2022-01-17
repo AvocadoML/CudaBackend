@@ -233,7 +233,7 @@ namespace
 			dst[i] = operation(input1[i], rhs);
 	}
 	template<class Op, typename T>
-	void helper_binary_logical_op(cudaStream_t stream, T* dst, const T *input1, const T* input2, BroadcastedDimensions dimensions)
+	void helper_binary_logical_op(cudaStream_t stream, T* dst, const T *input1, const T* input2, cuda::BroadcastedDimensions dimensions)
 	{
 		if (dimensions.first == 1) // both input1 and input2 have the same shape
 		{
@@ -258,7 +258,7 @@ namespace
 		}
 	}
 	template<typename T>
-	avStatus_t launcher_binary_logical_op(cudaStream_t stream, T* dst, const T *input1, const T* input2, BroadcastedDimensions dimensions,
+	avStatus_t launcher_binary_logical_op(cudaStream_t stream, T* dst, const T *input1, const T* input2, cuda::BroadcastedDimensions dimensions,
 			avBinaryOp_t operation)
 	{
 		switch (operation)
@@ -354,7 +354,7 @@ namespace
 
 	template<class Op, typename T, typename U = T>
 	void helper_binary_op(cudaStream_t stream, T* dst, const T *input1, const U alpha1, const T* input2, const U alpha2, const U beta,
-			BroadcastedDimensions dimensions)
+			cuda::BroadcastedDimensions dimensions)
 	{
 		if (dimensions.first == 1) // both input1 and input2 have the same shape
 		{
@@ -381,7 +381,7 @@ namespace
 	}
 	template<typename T, typename U = T>
 	avStatus_t launcher_binary_op(cudaStream_t stream, T* dst, const T *input1, const U alpha1, const T* input2, const U alpha2, const U beta,
-			BroadcastedDimensions dimensions, avBinaryOp_t operation)
+			cuda::BroadcastedDimensions dimensions, avBinaryOp_t operation)
 	{
 		switch (operation)
 		{
@@ -445,44 +445,44 @@ namespace avocado
 				const avMemoryDescriptor_t aMem, const void *alpha2, const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem, const void *beta,
 				const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem)
 		{
-			BroadcastedDimensions dimensions = getBroadcastDimensions(getTensor(aDesc), getTensor(bDesc));
-			cudaStream_t stream = getContext(context).getStream();
+			cuda::BroadcastedDimensions dimensions = getBroadcastDimensions(cuda::getTensor(aDesc), cuda::getTensor(bDesc));
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			if (is_logical(operation))
+			if (cuda::is_logical(operation))
 			{
-				const int bytes = dimensions.last * dataTypeSize(getTensor(aDesc).dtype());
+				const int bytes = dimensions.last * cuda::dataTypeSize(cuda::getTensor(aDesc).dtype());
 				if (bytes % 4 == 0)
-					return launcher_binary_logical_op(stream, getPointer<uint32_t>(cMem), getPointer<uint32_t>(aMem), getPointer<uint32_t>(bMem), dimensions,
-							operation);
+					return launcher_binary_logical_op(stream, cuda::getPointer<uint32_t>(cMem), cuda::getPointer<uint32_t>(aMem),
+							cuda::getPointer<uint32_t>(bMem), dimensions, operation);
 				else
 				{
 					if (bytes % 2 == 0)
-						return launcher_binary_logical_op(stream, getPointer<uint16_t>(cMem), getPointer<uint16_t>(aMem), getPointer<uint16_t>(bMem),
-								dimensions, operation);
+						return launcher_binary_logical_op(stream, cuda::getPointer<uint16_t>(cMem), cuda::getPointer<uint16_t>(aMem),
+								cuda::getPointer<uint16_t>(bMem), dimensions, operation);
 					else
-						return launcher_binary_logical_op(stream, getPointer<uint8_t>(cMem), getPointer<uint8_t>(aMem), getPointer<uint8_t>(bMem), dimensions,
-								operation);
+						return launcher_binary_logical_op(stream, cuda::getPointer<uint8_t>(cMem), cuda::getPointer<uint8_t>(aMem),
+								cuda::getPointer<uint8_t>(bMem), dimensions, operation);
 				}
 			}
 			else
 			{
-				switch (getTensor(cDesc).dtype())
+				switch (cuda::getTensor(cDesc).dtype())
 				{
 //					case AVOCADO_DTYPE_FLOAT16:
-//						launcher_binary_op(stream, getPointer<half>(cMem), getPointer<half>(aMem), getAlphaValue(alpha1),
-//								getPointer<half>(bMem), getAlphaValue(alpha2), getBetaValue(beta), dimensions, operation);
+//						launcher_binary_op(stream, cuda::getPointer<half>(cMem), cuda::getPointer<half>(aMem), cuda::getAlphaValue(alpha1),
+//								cuda::getPointer<half>(bMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta), dimensions, operation);
 //						break;
 //					case AVOCADO_DTYPE_BFLOAT16:
-//						launcher_binary_op(stream, getPointer<bfloat16>(cMem), getPointer<bfloat16>(aMem), getAlphaValue(alpha1),
-//								getPointer<bfloat16>(bMem), getAlphaValue(alpha2), getBetaValue(beta), dimensions, operation);
+//						launcher_binary_op(stream, cuda::getPointer<bfloat16>(cMem), cuda::getPointer<bfloat16>(aMem), cuda::getAlphaValue(alpha1),
+//								cuda::getPointer<bfloat16>(bMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta), dimensions, operation);
 //						break;
 					case AVOCADO_DTYPE_FLOAT32:
-						launcher_binary_op(stream, getPointer<float>(cMem), getPointer<float>(aMem), getAlphaValue(alpha1), getPointer<float>(bMem),
-								getAlphaValue(alpha2), getBetaValue(beta), dimensions, operation);
+						launcher_binary_op(stream, cuda::getPointer<float>(cMem), cuda::getPointer<float>(aMem), cuda::getAlphaValue(alpha1),
+								cuda::getPointer<float>(bMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta), dimensions, operation);
 						break;
 					case AVOCADO_DTYPE_FLOAT64:
-						launcher_binary_op(stream, getPointer<double>(cMem), getPointer<double>(aMem), getAlphaValue<double>(alpha1), getPointer<double>(bMem),
-								getAlphaValue<double>(alpha2), getBetaValue<double>(beta), dimensions, operation);
+						launcher_binary_op(stream, cuda::getPointer<double>(cMem), cuda::getPointer<double>(aMem), cuda::getAlphaValue<double>(alpha1),
+								cuda::getPointer<double>(bMem), cuda::getAlphaValue<double>(alpha2), cuda::getBetaValue<double>(beta), dimensions, operation);
 						break;
 					default:
 						return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;

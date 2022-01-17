@@ -28,7 +28,7 @@ public:
 		cudaCreateTensorDescriptor(&desc);
 		cudaSetTensorDescriptor(desc, dtype, dimensions.size(), dimensions.begin());
 
-		avSize_t size_in_bytes = getTensor(desc).sizeInBytes();
+		avSize_t size_in_bytes = cuda::getTensor(desc).sizeInBytes();
 		cudaCreateMemoryDescriptor(&mem, deviceIndex, size_in_bytes);
 		cudaSetMemory(cudaGetDefaultContext(deviceIndex), mem, 0, size_in_bytes, nullptr, 0);
 	}
@@ -40,22 +40,22 @@ public:
 	template<typename T>
 	void fill(T value)
 	{
-		assert(typeOf<T>() == getTensor(desc).dtype());
-		std::unique_ptr<T[]> tmp = std::make_unique<T[]>(getTensor(desc).volume());
-		for (avSize_t i = 0; i < getTensor(desc).volume(); i++)
+		assert(cuda::typeOf<T>() == cuda::getTensor(desc).dtype());
+		std::unique_ptr<T[]> tmp = std::make_unique<T[]>(cuda::getTensor(desc).volume());
+		for (avSize_t i = 0; i < cuda::getTensor(desc).volume(); i++)
 			tmp[i] = value;
-		cudaMemcpy(getPointer(mem), tmp.get(), getTensor(desc).sizeInBytes(), cudaMemcpyHostToDevice);
+		cudaMemcpy(cuda::getPointer(mem), tmp.get(), cuda::getTensor(desc).sizeInBytes(), cudaMemcpyHostToDevice);
 	}
 	template<typename T>
 	void set(T value, std::initializer_list<int> idx)
 	{
-		cudaMemcpy(getPointer<T>(mem) + getTensor(desc).getIndex(idx), &value, sizeof(T), cudaMemcpyHostToDevice);
+		cudaMemcpy(cuda::getPointer<T>(mem) + cuda::getTensor(desc).getIndex(idx), &value, sizeof(T), cudaMemcpyHostToDevice);
 	}
 	template<typename T>
 	T get(std::initializer_list<int> idx) const
 	{
 		T result;
-		cudaMemcpy(&result, getPointer<T>(mem) + getTensor(desc).getIndex(idx), sizeof(T), cudaMemcpyDeviceToHost);
+		cudaMemcpy(&result, cuda::getPointer<T>(mem) + cuda::getTensor(desc).getIndex(idx), sizeof(T), cudaMemcpyDeviceToHost);
 		return result;
 	}
 	avTensorDescriptor_t getDesc() const noexcept
@@ -69,23 +69,23 @@ public:
 	template<typename T = void>
 	T* data() noexcept
 	{
-		return getPointer<T>(mem);
+		return cuda::getPointer<T>(mem);
 	}
 	template<typename T = void>
 	const T* data() const noexcept
 	{
-		return getPointer<T>(mem);
+		return cuda::getPointer<T>(mem);
 	}
 	int volume() const noexcept
 	{
-		return getTensor(desc).volume();
+		return cuda::getTensor(desc).volume();
 	}
 
 	template<typename T>
 	std::unique_ptr<T[]> copyToHost() const
 	{
-		std::unique_ptr<T[]> result = std::make_unique<T[]>(getTensor(desc).volume());
-		cudaError_t status = cudaMemcpy(result.get(), getPointer(mem), getTensor(desc).sizeInBytes(), cudaMemcpyDeviceToHost);
+		std::unique_ptr<T[]> result = std::make_unique<T[]>(cuda::getTensor(desc).volume());
+		cudaError_t status = cudaMemcpy(result.get(), cuda::getPointer(mem), cuda::getTensor(desc).sizeInBytes(), cudaMemcpyDeviceToHost);
 		if (status != cudaSuccess)
 			throw std::runtime_error("copyToHost");
 		return result;
@@ -93,7 +93,7 @@ public:
 	template<typename T>
 	void copyFromHost(const std::unique_ptr<T[]> &data)
 	{
-		cudaError_t status = cudaMemcpy(getPointer(mem), data.get(), getTensor(desc).sizeInBytes(), cudaMemcpyHostToDevice);
+		cudaError_t status = cudaMemcpy(cuda::getPointer(mem), data.get(), cuda::getTensor(desc).sizeInBytes(), cudaMemcpyHostToDevice);
 		if (status != cudaSuccess)
 			throw std::runtime_error("copyFromHost");
 	}
@@ -122,9 +122,9 @@ template<typename DataType, typename ComputeType = DataType, typename ScalingTyp
 //void kernel_convolution_2d(const ConvolutionDescriptor &config, ScalingType alpha, const TensorDescriptor &xDesc, const DataType *xMem,
 //		const TensorDescriptor &wDesc, const DataType *wMem, ScalingType beta, const TensorDescriptor &yDesc, DataType *yMem, avActivationType_t activation =
 //				AVOCADO_ACTIVATION_LINEAR, ScalingType alpha2 = zero<ScalingType>(), const BiasType *bias = nullptr, const DataType *zMem = nullptr)
-void kernel_convolution_2d(ScalingType alpha, const TensorDescriptor &xDesc, const DataType *xMem, const TensorDescriptor &wDesc, const DataType *wMem,
-		ScalingType beta, const TensorDescriptor &yDesc, DataType *yMem, avActivationType_t activation = AVOCADO_ACTIVATION_LINEAR, const BiasType *bias =
-				nullptr, ScalingType alpha2 = zero<ScalingType>(), const DataType *zMem = nullptr)
+void kernel_convolution_2d(ScalingType alpha, const cuda::TensorDescriptor &xDesc, const DataType *xMem, const cuda::TensorDescriptor &wDesc,
+		const DataType *wMem, ScalingType beta, const cuda::TensorDescriptor &yDesc, DataType *yMem, avActivationType_t activation = AVOCADO_ACTIVATION_LINEAR,
+		const BiasType *bias = nullptr, ScalingType alpha2 = zero<ScalingType>(), const DataType *zMem = nullptr)
 {
 	const int batch_size = xDesc.dimension(0);
 
@@ -318,7 +318,7 @@ void test_fused()
 					storage3[tmp] = 1.0f * i + 1.0e-1f * (3 * j + k) + 1.0e-4f * l;
 	weights.copyFromHost(storage3);
 
-	avStatus_t status = winogradFusedForward(context, 0, nullptr, input.getDesc(), input.getMem(), weights.getDesc(), weights.getMem(), bias.getDesc(),
+	avStatus_t status = cuda_winogradFusedForward(context, 0, nullptr, input.getDesc(), input.getMem(), weights.getDesc(), weights.getMem(), bias.getDesc(),
 			bias.getMem(), nullptr, -1, -1, nullptr, output.getDesc(), output.getMem(), AVOCADO_ACTIVATION_LINEAR);
 
 	std::unique_ptr<float[]> storage2 = output.copyToHost<float>();
@@ -393,11 +393,11 @@ void test_nonfused()
 	std::unique_ptr<float[]> host_weights = weights.copyToHost<float>();
 	std::unique_ptr<float[]> host_bias = bias.copyToHost<float>();
 	std::unique_ptr<float[]> host_output = output_correct.copyToHost<float>();
-	kernel_convolution_2d<float>(1.0f, getTensor(input.getDesc()), host_input.get(), getTensor(weights.getDesc()), host_weights.get(), 0.0f,
-			getTensor(output_correct.getDesc()), host_output.get(), AVOCADO_ACTIVATION_LINEAR, host_bias.get());
+	kernel_convolution_2d<float>(1.0f, cuda::getTensor(input.getDesc()), host_input.get(), cuda::getTensor(weights.getDesc()), host_weights.get(), 0.0f,
+			cuda::getTensor(output_correct.getDesc()), host_output.get(), AVOCADO_ACTIVATION_LINEAR, host_bias.get());
 	output_correct.copyFromHost(host_output);
 
-	avStatus_t status = winogradWeightTransform(context, 0, weights.getDesc(), weights.getMem(), weight_matrices.getDesc(), weight_matrices.getMem());
+	avStatus_t status = cuda_winogradWeightTransform(context, 0, weights.getDesc(), weights.getMem(), weight_matrices.getDesc(), weight_matrices.getMem());
 //	for (int i = 0; i < 3; i++)
 //	{
 //		for (int j = 0; j < 3; j++)
@@ -412,10 +412,10 @@ void test_nonfused()
 //		printf("\n");
 //	}
 
-	status = winogradInputTransform(context, 0, input.getDesc(), input.getMem(), input_matrices.getDesc(), input_matrices.getMem());
+	status = cuda_winogradInputTransform(context, 0, input.getDesc(), input.getMem(), input_matrices.getDesc(), input_matrices.getMem());
 	status = cudaGemmBatched(context, AVOCADO_GEMM_OPERATION_N, AVOCADO_GEMM_OPERATION_T, nullptr, input_matrices.getDesc(), input_matrices.getMem(),
 			weight_matrices.getDesc(), weight_matrices.getMem(), nullptr, output_matrices.getDesc(), output_matrices.getMem());
-	status = winogradOutputTransform(context, 0, nullptr, output_matrices.getDesc(), output_matrices.getMem(), output.getDesc(), output.getMem(),
+	status = cuda_winogradOutputTransform(context, 0, nullptr, output_matrices.getDesc(), output_matrices.getMem(), output.getDesc(), output.getMem(),
 			bias.getDesc(), bias.getMem(), nullptr, -1, -1, nullptr, AVOCADO_ACTIVATION_LINEAR);
 	cudaDeviceSynchronize();
 	auto storage4 = output.copyToHost<float>();
@@ -447,7 +447,16 @@ int main()
 
 //	test_implicit_gemm();
 //	test_fused();
-	test_nonfused();
+//	test_nonfused();
+
+	avMemoryDescriptor_t mem;
+	cudaCreateMemoryDescriptor(&mem, 1, 4000);
+
+	avContextDescriptor_t context = cudaGetDefaultContext(1);
+	avStatus_t status = cudaSetMemory(context, mem, 0, 4000, nullptr, 0);
+	std::cout << status << '\n';
+
+	cudaDestroyMemoryDescriptor(mem);
 
 	std::cout << cudaGetErrorName(cudaGetLastError()) << '\n';
 	std::cout << "END" << std::endl;

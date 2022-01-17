@@ -135,17 +135,17 @@ namespace avocado
 		avStatus_t cudaActivationForward(avContextDescriptor_t context, avActivationType_t activation, const void *alpha, const avTensorDescriptor_t xDesc,
 				const avMemoryDescriptor_t xMem, const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem)
 		{
-			const unsigned int elements = getTensor(yDesc).volume();
-			cudaStream_t stream = getContext(context).getStream();
+			const unsigned int elements = cuda::getTensor(yDesc).volume();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(yDesc).dtype())
+			switch (cuda::getTensor(yDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					return helper_act_forward(stream, getPointer<float>(xMem), getPointer<float>(yMem), getAlphaValue(alpha), getBetaValue(beta), elements,
-							activation);
+					return helper_act_forward(stream, cuda::getPointer<float>(xMem), cuda::getPointer<float>(yMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), elements, activation);
 				case AVOCADO_DTYPE_FLOAT64:
-					return helper_act_forward(stream, getPointer<double>(xMem), getPointer<double>(yMem), getAlphaValue<double>(alpha),
-							getBetaValue<double>(beta), elements, activation);
+					return helper_act_forward(stream, cuda::getPointer<double>(xMem), cuda::getPointer<double>(yMem), cuda::getAlphaValue<double>(alpha),
+							cuda::getBetaValue<double>(beta), elements, activation);
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 			}
@@ -155,17 +155,17 @@ namespace avocado
 				const avMemoryDescriptor_t yMem, const avTensorDescriptor_t dyDesc, const avMemoryDescriptor_t dyMem, const void *beta,
 				const avTensorDescriptor_t dxDesc, avMemoryDescriptor_t dxMem)
 		{
-			const unsigned int elements = getTensor(yDesc).volume();
-			cudaStream_t stream = getContext(context).getStream();
+			const unsigned int elements = cuda::getTensor(yDesc).volume();
+			cudaStream_t stream = cuda::getContext(context).getStream();
 
-			switch (getTensor(yDesc).dtype())
+			switch (cuda::getTensor(yDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					return helper_act_backward(stream, getPointer<float>(dxMem), getPointer<float>(dyMem), getPointer<float>(yMem), getAlphaValue(alpha),
-							getBetaValue(beta), elements, activation);
+					return helper_act_backward(stream, cuda::getPointer<float>(dxMem), cuda::getPointer<float>(dyMem), cuda::getPointer<float>(yMem),
+							cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), elements, activation);
 				case AVOCADO_DTYPE_FLOAT64:
-					return helper_act_backward(stream, getPointer<double>(dxMem), getPointer<double>(dyMem), getPointer<double>(yMem),
-							getAlphaValue<double>(alpha), getBetaValue<double>(beta), elements, activation);
+					return helper_act_backward(stream, cuda::getPointer<double>(dxMem), cuda::getPointer<double>(dyMem), cuda::getPointer<double>(yMem),
+							cuda::getAlphaValue<double>(alpha), cuda::getBetaValue<double>(beta), elements, activation);
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 			}
