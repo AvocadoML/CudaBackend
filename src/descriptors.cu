@@ -52,7 +52,6 @@ namespace avocado
 
 		avStatus_t cudaCreateMemoryDescriptor(avMemoryDescriptor_t *result, avDeviceIndex_t deviceIndex, avSize_t sizeInBytes)
 		{
-			std::cout << "USE_CUDA = " << USE_CUDA << '\n';
 			return cuda::create<cuda::MemoryDescriptor>(result, deviceIndex, sizeInBytes);
 		}
 		avStatus_t cudaCreateMemoryView(avMemoryDescriptor_t *result, const avMemoryDescriptor_t desc, avSize_t sizeInBytes, avSize_t offsetInBytes)
@@ -66,26 +65,18 @@ namespace avocado
 		avStatus_t cudaSetMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, avSize_t dstSize, const void *pattern,
 				avSize_t patternSize)
 		{
+			if (not cuda::same_device_type(context, dst))
+				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
 			try
 			{
-				std::cout << __PRETTY_FUNCTION__ << "\n" << context << " " << dst << " " << dstOffset << " " << dstSize << '\n';
-				std::cout << cuda::getContext(context).getDevice() << '\n';
-				cudaSetDevice(cuda::getContext(context).getDevice());
+				cuda::getContext(context).setDevice();
 				if (pattern == nullptr)
 				{
-					std::cout << "null pattern\n";
-					cudaError_t status;
+					cudaError_t status = cudaGetLastError();
 					if (isDefault(context))
-					{
-						std::cout << "sync\n";
 						status = cudaMemset(cuda::getPointer<int8_t>(dst) + dstOffset, 0, dstSize);
-					}
 					else
-					{
-						std::cout << "async\n";
 						status = cudaMemsetAsync(cuda::getPointer<int8_t>(dst) + dstOffset, 0, dstSize, cuda::getContext(context).getStream());
-					}
-					std::cout << cudaGetErrorName(status) << '\n';
 					return convertStatus(status);
 				}
 
@@ -108,15 +99,17 @@ namespace avocado
 				}
 			} catch (std::exception &e)
 			{
-				std::cout << "tu leci error " << e.what() << '\n';
 			}
 			return AVOCADO_STATUS_INTERNAL_ERROR;
 		}
 		avStatus_t cudaCopyMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, const avMemoryDescriptor_t src,
 				avSize_t srcOffset, avSize_t count)
 		{
+			if (not cuda::same_device_type(context, dst, src))
+				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
 			try
 			{
+				cuda::getContext(context).setDevice();
 				bool is_direct_copy_possible;
 				cudaIsCopyPossible(cuda::getMemory(src).device(), cuda::getMemory(dst).device(), &is_direct_copy_possible);
 				if (is_direct_copy_possible) // can use peer-to-peer copy
@@ -152,6 +145,7 @@ namespace avocado
 			cudaError_t status;
 			try
 			{
+				cuda::getContext(context).setDevice();
 				if (isDefault(context))
 					status = cudaMemcpy(dst, cuda::getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost);
 				else
@@ -170,6 +164,7 @@ namespace avocado
 			cudaError_t status;
 			try
 			{
+				cuda::getContext(context).setDevice();
 				if (isDefault(context))
 					status = cudaMemcpy(cuda::getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice);
 				else
@@ -216,6 +211,8 @@ namespace avocado
 		}
 		avStatus_t cudaDestroyContextDescriptor(avContextDescriptor_t desc)
 		{
+			if (isDefault(desc))
+				return AVOCADO_STATUS_BAD_PARAM;
 			return cuda::destroy<cuda::ContextDescriptor>(desc);
 		}
 		avContextDescriptor_t cudaGetDefaultContext(avDeviceIndex_t deviceIndex)
@@ -229,6 +226,7 @@ namespace avocado
 		{
 			try
 			{
+				cuda::getContext(context).setDevice();
 				cudaError_t status = cudaStreamSynchronize(cuda::getContext(context).getStream());
 				if (status != cudaSuccess)
 					return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -244,6 +242,7 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
+				cuda::getContext(context).setDevice();
 				cudaError_t status = cudaStreamQuery(cuda::getContext(context).getStream());
 				if (status == cudaSuccess)
 					result[0] = true;
