@@ -660,7 +660,7 @@ namespace avocado
 			{
 				return 0; // TODO
 			}
-			if (cuda::getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_WINOGRAD)
+			if (cuda::getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_WINOGRAD_NON_FUSED)
 			{
 				switch (cuda::getTensor(wDesc).dtype())
 				{

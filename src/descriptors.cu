@@ -309,7 +309,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getConvolution(desc).set(mode, nbDims, strides, padding, dilation, groups, paddingValue);
+//				cuda::getConvolution(desc).set(mode, nbDims, strides, padding, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -321,7 +321,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getConvolution(desc).get(mode, nbDims, strides, padding, dilation, groups, paddingValue);
+//				cuda::getConvolution(desc).get(mode, nbDims, strides, padding, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -341,7 +341,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getOptimizer(desc).set_sgd(learningRate, useMomentum, useNesterov, beta1);
+//				cuda::getOptimizer(desc).set_sgd(learningRate, useMomentum, useNesterov, beta1);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -352,7 +352,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getOptimizer(desc).get_sgd(learningRate, useMomentum, useNesterov, beta1);
+//				cuda::getOptimizer(desc).get_sgd(learningRate, useMomentum, useNesterov, beta1);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -363,7 +363,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getOptimizer(desc).set_adam(learningRate, beta1, beta2);
+//				cuda::getOptimizer(desc).set_adam(learningRate, beta1, beta2);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -374,7 +374,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getOptimizer(desc).get_adam(learningRate, beta1, beta2);
+//				cuda::getOptimizer(desc).get_adam(learningRate, beta1, beta2);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -387,7 +387,7 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-				cuda::getOptimizer(desc).get_type(type);
+//				cuda::getOptimizer(desc).get_type(type);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -400,7 +400,7 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-				cuda::getOptimizer(desc).get_workspace_size(result, cuda::getTensor(wDesc));
+//				cuda::getOptimizer(desc).get_workspace_size(result, cuda::getTensor(wDesc));
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;

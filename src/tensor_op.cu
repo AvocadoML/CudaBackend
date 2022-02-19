@@ -341,7 +341,7 @@ namespace avocado
 			return checkForErrors();
 		}
 
-		avStatus_t cudaAddTensors(avContextDescriptor_t context, const void *alpha3, const void *alpha1, const avTensorDescriptor_t aDesc,
+		avStatus_t cudaAddBias(avContextDescriptor_t context, const void *alpha3, const void *alpha1, const avTensorDescriptor_t aDesc,
 				const avMemoryDescriptor_t aMem, const void *alpha2, const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem, const void *beta,
 				const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem, avActivationType_t activation)
 		{
