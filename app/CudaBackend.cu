@@ -17,6 +17,9 @@
 #include "../src/winograd.hpp"
 using namespace avocado::backend;
 
+#include "../src/numbers/generic_number.cuh"
+#include "../src/numbers/numbers.cuh"
+
 class TensorWrapper
 {
 private:
@@ -40,7 +43,6 @@ public:
 	template<typename T>
 	void fill(T value)
 	{
-		assert(cuda::typeOf<T>() == cuda::getTensor(desc).dtype());
 		std::unique_ptr<T[]> tmp = std::make_unique<T[]>(cuda::getTensor(desc).volume());
 		for (avSize_t i = 0; i < cuda::getTensor(desc).volume(); i++)
 			tmp[i] = value;
@@ -441,9 +443,40 @@ void test_nonfused()
 //	}
 }
 
+template<typename T>
+__global__ void set_numbers(T *data, int length)
+{
+	for (int i = threadIdx.x; i < length; i += blockDim.x)
+		numbers::Number<T>(i * 0.1f).store(data + i);
+}
+template<typename T>
+__global__ void test_number(T *data, int length)
+{
+	for (int i = threadIdx.x; i < length; i += blockDim.x)
+	{
+		numbers::Number<T> n(data + i, length - i);
+		n = sin(n);
+		n.store(data + i, length - i);
+	}
+}
+
 int main()
 {
 	std::cout << __CUDACC_VER_MAJOR__ << "." << __CUDACC_VER_MINOR__ << "." << __CUDACC_VER_BUILD__ << '\n';
+
+	bfloat16 *data;
+	cudaMalloc(&data, sizeof(bfloat16) * 1000);
+
+	set_numbers<<<1, 256>>>(data, 1000);
+	test_number<<<1, 1>>>(data, 1000);
+
+	cudaDeviceSynchronize();
+
+	bfloat16 host[1000];
+	cudaMemcpy(host, data, sizeof(half) * 1000, cudaMemcpyDeviceToHost);
+	for (int i = 0; i < 10; i++)
+		std::cout << i << " " << numbers::bfloat16_to_float(host[i]) << '\n';
+	return 0;
 
 //	test_implicit_gemm();
 //	test_fused();
