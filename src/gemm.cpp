@@ -49,11 +49,19 @@ namespace avocado
 					if ((_alpha != 0 and _alpha != 1) or (_beta != 0 and _beta != 1))
 						return AVOCADO_STATUS_BAD_PARAM;
 
-					cublasStatus_t status = cublasGemmEx(cuda::getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, cuda::getPointer<int8_t>(bMem),
-							CUDA_R_8I, LDB, cuda::getPointer<int8_t>(aMem), CUDA_R_8I, LDA, &_beta, cuda::getPointer<int32_t>(cMem), CUDA_R_32I, LDC,
-							CUDA_R_32I, CUBLAS_GEMM_DEFAULT);
+					cublasStatus_t status = cublasGemmEx(cuda::getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, cuda::getPointer(bMem), CUDA_R_8I,
+							LDB, cuda::getPointer(aMem), CUDA_R_8I, LDA, &_beta, cuda::getPointer(cMem), CUDA_R_32I, LDC, CUDA_R_32I, CUBLAS_GEMM_DEFAULT);
 					return convertStatus(status);
 				}
+//				case AVOCADO_DTYPE_BFLOAT16: // ABC [bfloat16]
+//				{
+//					float _alpha = cuda::getAlphaValue(alpha);
+//					float _beta = cuda::getBetaValue(beta);
+//					cublasStatus_t status = cublasGemmEx(cuda::getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, cuda::getPointer(bMem),
+//							CUDA_R_16BF, LDB, cuda::getPointer(aMem), CUDA_R_16BF, LDA, &_beta, cuda::getPointer(cMem), CUDA_R_16BF, LDC, CUDA_R_32F,
+//							CUBLAS_GEMM_DEFAULT);
+//					return convertStatus(status);
+//				}
 				case AVOCADO_DTYPE_FLOAT16: // ABC [float16]
 				{
 					int sm_ver = cuda_sm_version(cuda::getContext(context).getDevice());
@@ -69,9 +77,9 @@ namespace avocado
 					{
 						float _alpha = cuda::getAlphaValue(alpha);
 						float _beta = cuda::getBetaValue(beta);
-						cublasStatus_t status = cublasGemmEx(cuda::getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, cuda::getPointer<half>(bMem),
-								CUDA_R_16F, LDB, cuda::getPointer<half>(aMem), CUDA_R_16F, LDA, &_beta, cuda::getPointer<half>(cMem), CUDA_R_16F, LDC,
-								CUDA_R_32F, CUBLAS_GEMM_DEFAULT);
+						cublasStatus_t status = cublasGemmEx(cuda::getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha, cuda::getPointer(bMem),
+								CUDA_R_16F, LDB, cuda::getPointer(aMem), CUDA_R_16F, LDA, &_beta, cuda::getPointer(cMem), CUDA_R_16F, LDC, CUDA_R_32F,
+								CUBLAS_GEMM_DEFAULT);
 						return convertStatus(status);
 					}
 				}
@@ -152,8 +160,8 @@ namespace avocado
 						float _alpha = cuda::getAlphaValue(alpha);
 						float _beta = cuda::getBetaValue(beta);
 						cublasStatus_t status = cublasGemmStridedBatchedEx(cuda::getContext(context).getHandle(), op_B, op_A, M, N, K, &_alpha,
-								cuda::getPointer<half>(bMem), CUDA_R_16F, LDB, strideB, cuda::getPointer<half>(aMem), CUDA_R_16F, LDA, strideA, &_beta,
-								cuda::getPointer<half>(cMem), CUDA_R_16F, LDC, strideC, batch, CUDA_R_32F, CUBLAS_GEMM_DEFAULT);
+								cuda::getPointer(bMem), CUDA_R_16F, LDB, strideB, cuda::getPointer(aMem), CUDA_R_16F, LDA, strideA, &_beta,
+								cuda::getPointer(cMem), CUDA_R_16F, LDC, strideC, batch, CUDA_R_32F, CUBLAS_GEMM_DEFAULT);
 						return convertStatus(status);
 					}
 				}
