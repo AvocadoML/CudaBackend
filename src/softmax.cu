@@ -110,13 +110,13 @@ namespace
 			max_element = reduction_storage[0];
 
 			/* Second, calculate sum of exponents of input data, shifted by their maximum element */
-
 			T sum = zero<T>();
 			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
 			{
-				input_storage[j] = exp(input_storage[i * last_dim + j] - max_element);
-				sum += input_storage[threadIdx.x];
+				input_storage[j] = exp(input_storage[j] - max_element);
+				sum += input_storage[j];
 			}
+			reduction_storage[threadIdx.x] = sum;
 			__syncthreads();
 
 			/* Now sum the storage array into single element */
@@ -160,7 +160,6 @@ namespace
 	__global__ void kernel_softmax_forward_large_last_dim(const T *input, T *output, U alpha, U beta, unsigned int first_dim, unsigned int last_dim)
 	{
 		assert(blockDim.x == 256 && blockDim.y == 1);
-		assert(last_dim >= blockDim.x);
 		__shared__ T storage[256];
 
 		for (unsigned int i = blockIdx.x; i < first_dim; i += gridDim.x)
@@ -225,34 +224,34 @@ namespace
 	template<typename T, typename U = T>
 	void helper_softmax_forward(cudaStream_t stream, const T *input, T *output, U alpha, U beta, unsigned int first_dim, unsigned int last_dim)
 	{
-		if (last_dim <= 4)
-		{
-			dim3 blockDim(256);
-			dim3 gridDim = gridSize<512>(first_dim * last_dim, blockDim.x);
-			kernel_softmax_forward_small_last_dim<1024, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
-			return;
-		}
-		if (4 < last_dim and last_dim <= 32)
+//		if (last_dim <= 4)
+//		{
+//			dim3 blockDim(256);
+//			dim3 gridDim = gridSize<512>(first_dim * last_dim, blockDim.x);
+//			kernel_softmax_forward_small_last_dim<1024, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
+//			return;
+//		}
+//		if (4 < last_dim and last_dim <= 32)
 		{
 			dim3 blockDim(32);
 			dim3 gridDim = gridSize<1024>(first_dim * last_dim, blockDim.x);
-			kernel_softmax_forward_small_last_dim<1024, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
+			kernel_softmax_forward_small_last_dim<1024, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
 			return;
 		}
-		if (32 < last_dim and last_dim <= 1024)
-		{
-			dim3 blockDim(256);
-			dim3 gridDim = gridSize<1024>(first_dim, 1);
-			kernel_softmax_forward_medium_last_dim<1024, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
-			return;
-		}
-		if (1024 < last_dim)
-		{
-			dim3 blockDim(256);
-			dim3 gridDim = gridSize<1024>(first_dim, 1);
-			kernel_softmax_forward_large_last_dim<<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
-			return;
-		}
+//		if (32 < last_dim and last_dim <= 1024)
+//		{
+//			dim3 blockDim(256);
+//			dim3 gridDim = gridSize<1024>(first_dim, 1);
+//			kernel_softmax_forward_medium_last_dim<1024, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
+//			return;
+//		}
+//		if (1024 < last_dim)
+//		{
+//			dim3 blockDim(256);
+//			dim3 gridDim = gridSize<1024>(first_dim, 1);
+//			kernel_softmax_forward_large_last_dim<<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
+//			return;
+//		}
 	}
 
 	template<typename T, typename U = T>
@@ -330,11 +329,11 @@ namespace avocado
 			switch (cuda::getTensor(yDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					kernel_softmax_backward<<<blockDim, gridDim, 0, stream>>>(cuda::getPointer<float>(dxMem), cuda::getPointer<float>(dyMem),
+					kernel_softmax_backward<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(dxMem), cuda::getPointer<float>(dyMem),
 							cuda::getPointer<float>(yMem), cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					kernel_softmax_backward<<<blockDim, gridDim, 0, stream>>>(cuda::getPointer<double>(dxMem), cuda::getPointer<double>(dyMem),
+					kernel_softmax_backward<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(dxMem), cuda::getPointer<double>(dyMem),
 							cuda::getPointer<double>(yMem), cuda::getAlphaValue<double>(alpha), cuda::getBetaValue<double>(beta), elements);
 					break;
 				default:
