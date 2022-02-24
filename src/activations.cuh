@@ -8,18 +8,20 @@
 #ifndef ACTIVATIONS_CUH_
 #define ACTIVATIONS_CUH_
 
+#include "numbers/numbers.cuh"
+
 template<typename T>
-__host__ __device__ T zero() noexcept
+__host__                      __device__ T zero() noexcept
 {
-	return static_cast<T>(0);
+	return static_cast<T>(0.0);
 }
 template<typename T>
-__host__ __device__ T one() noexcept
+__host__                      __device__ T one() noexcept
 {
-	return static_cast<T>(1);
+	return static_cast<T>(1.0);
 }
 template<typename T>
-__host__ __device__ T eps() noexcept
+__host__                      __device__ T eps() noexcept
 {
 	return static_cast<T>(1.0e-16);
 }
@@ -83,7 +85,16 @@ __device__ bool ispow2(T x) noexcept
 template<typename T>
 __device__ T sgn(T x) noexcept
 {
-	return (zero<T>() < x) - (x < zero<T>());
+	if (x > zero<T>())
+		return one<T>();
+	else
+	{
+		if (x < zero<T>())
+			return -one<T>();
+		else
+			return zero<T>();
+	}
+//	return (zero<T>() < x) - (x < zero<T>());
 }
 
 /**
@@ -92,6 +103,14 @@ __device__ T sgn(T x) noexcept
 template<typename T>
 struct ActivationLinear
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		return input;
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		return gradient;
+	}
 	__device__ T forward(T input) const
 	{
 		return input;
@@ -108,6 +127,14 @@ struct ActivationLinear
 template<typename T>
 struct ActivationSigmoid
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		return numbers::one<T>() / (numbers::one<T>() + numbers::exp(-input));
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		return gradient * (numbers::one<T>() - output) * output;
+	}
 	__device__ T forward(T input) const
 	{
 		return one<T>() / (one<T>() + exp(-input));
@@ -124,9 +151,17 @@ struct ActivationSigmoid
 template<typename T>
 struct ActivationTanh
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		return numbers::tanh(input);
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		return gradient * (numbers::one<T>() - output) * (numbers::one<T>() + output);
+	}
 	__device__ T forward(T input) const
 	{
-		return tanh(-input);
+		return tanh(input);
 	}
 	__device__ T backward(T gradient, T output) const
 	{
@@ -140,6 +175,14 @@ struct ActivationTanh
 template<typename T>
 struct ActivationRelu
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		return numbers::max(numbers::zero<T>(), input);
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		return output > numbers::zero<T>() ? gradient : numbers::zero<T>();
+	}
 	__device__ T forward(T input) const
 	{
 		return max(zero<T>(), input);
@@ -156,6 +199,20 @@ struct ActivationRelu
 template<typename T>
 struct ActivationSelu
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		if (input >= numbers::zero<T>())
+			return numbers::Number<T>(1.05070098f) * input;
+		else
+			return numbers::Number<T>(1.05070098f) * numbers::Number<T>(1.67326324f) * numbers::expm1(input);
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		if (output >= numbers::zero<T>())
+			return numbers::Number<T>(1.05070098f) * gradient;
+		else
+			return numbers::Number<T>(1.05070098f) * gradient * numbers::Number<T>(1.67326324f) * (output + numbers::one<T>());
+	}
 	__device__ T forward(T input) const
 	{
 		return static_cast<T>(1.05070098) * (input >= zero<T>() ? input : static_cast<T>(1.67326324) * expm1(input));
@@ -172,6 +229,20 @@ struct ActivationSelu
 template<typename T>
 struct ActivationElu
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		if (input >= numbers::zero<T>())
+			return input;
+		else
+			return numbers::expm1(input);
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		if (output >= numbers::zero<T>())
+			return gradient;
+		else
+			return gradient * (output + numbers::one<T>());
+	}
 	__device__ T forward(T input) const
 	{
 		return input >= zero<T>() ? input : expm1(input);
@@ -188,6 +259,14 @@ struct ActivationElu
 template<typename T>
 struct ActivationExponential
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		return numbers::exp(input);
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		return gradient * output;
+	}
 	__device__ T forward(T input) const
 	{
 		return exp(input);
@@ -204,6 +283,14 @@ struct ActivationExponential
 template<typename T>
 struct ActivationSoftplus
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		return numbers::log1p(numbers::exp(input));
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		return gradient * numbers::expm1(output) / numbers::exp(output);
+	}
 	__device__ T forward(T input) const
 	{
 		return log1p(exp(input));
@@ -220,6 +307,14 @@ struct ActivationSoftplus
 template<typename T>
 struct ActivationSoftsign
 {
+	__device__ numbers::Number<T> forward(numbers::Number<T> input) const
+	{
+		return input / (numbers::abs(input) + numbers::one<T>());
+	}
+	__device__ numbers::Number<T> backward(numbers::Number<T> gradient, numbers::Number<T> output) const
+	{
+		return gradient / square(abs(output / (numbers::one<T>() - numbers::sgn(output) * output)) + numbers::one<T>());
+	}
 	__device__ T forward(T input) const
 	{
 		return input / (fabs(input) + one<T>());

@@ -40,11 +40,11 @@ namespace numbers
 	using avocado::backend::bfloat16;
 
 #if (__CUDA_ARCH__ < BF16_COMPUTE_MIN_ARCH) or not HAS_BF16_HEADER
-	__device__ __host__ bfloat16 float_to_bfloat16(float x)
+	DEVICE_INLINE __host__ bfloat16 float_to_bfloat16(float x)
 	{
 		return reinterpret_cast<bfloat16*>(&x)[1];
 	}
-	__device__ __host__ float bfloat16_to_float(bfloat16 x) noexcept
+	DEVICE_INLINE __host__ float bfloat16_to_float(bfloat16 x) noexcept
 	{
 		float result = 0.0f;
 		reinterpret_cast<bfloat16*>(&result)[1] = x;
@@ -146,6 +146,10 @@ namespace numbers
 //		{
 //			return m_data;
 //		}
+//		__device__ Number<bfloat16> operator-() const
+//		{
+//			return Number<bfloat16>(-m_data);
+//		}
 #else
 		__device__ Number(const bfloat16 *ptr, int num = 1)
 		{
@@ -183,11 +187,15 @@ namespace numbers
 		{
 			return m_data;
 		}
+		__device__ Number<bfloat16> operator-() const
+		{
+			return Number<bfloat16>(-m_data);
+		}
 #endif
 	};
 
 	template<>
-	__device__ int length<bfloat16>()
+	DEVICE_INLINE int length<bfloat16>()
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		return 2;
@@ -197,22 +205,62 @@ namespace numbers
 	}
 
 	template<>
-	__device__ Number<bfloat16> zero()
+	DEVICE_INLINE Number<bfloat16> zero()
 	{
 		return Number<bfloat16>(0.0f);
 	}
 	template<>
-	__device__ Number<bfloat16> one()
+	DEVICE_INLINE Number<bfloat16> one()
 	{
 		return Number<bfloat16>(1.0f);
 	}
 	template<>
-	__device__ Number<bfloat16> epsilon()
+	DEVICE_INLINE Number<bfloat16> epsilon()
 	{
 		return Number<bfloat16>(1.1920928955078125e-7f);
 	}
 
-	__device__ Number<bfloat16> pow(Number<bfloat16> x, Number<bfloat16> y)
+	DEVICE_INLINE Number<bfloat16> sgn(Number<bfloat16> x) noexcept
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		bfloat16x2 tmp = x;
+		bfloat16x2 result;
+		result.x = static_cast<bfloat16>(internal::sgn(static_cast<float>(tmp.x)));
+		result.y = static_cast<bfloat16>(internal::sgn(static_cast<float>(tmp.y)));
+		return result;
+#else
+		return Number<bfloat16>(internal::sgn(static_cast<float>(x)));
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> abs(Number<bfloat16> x) noexcept
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		bfloat16x2 tmp = x;
+		bfloat16x2 result;
+		result.x = static_cast<bfloat16>(fabsf(static_cast<float>(tmp.x)));
+		result.y = static_cast<bfloat16>(fabsf(static_cast<float>(tmp.y)));
+		return result;
+#else
+		return Number<bfloat16>(fabsf(static_cast<float>(x)));
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> max(Number<bfloat16> x, Number<bfloat16> y)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(fmax(static_cast<float>(x.low()), static_cast<float>(y.low())), fmax(static_cast<float>(x.high()), static_cast<float>(y.high())));
+#else
+		return fmax(x, y);
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> min(Number<bfloat16> x, Number<bfloat16> y)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(fmin(static_cast<float>(x.low()), static_cast<float>(y.low())), fmin(static_cast<float>(x.high()), static_cast<float>(y.high())));
+#else
+		return fmin(x, y);
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> pow(Number<bfloat16> x, Number<bfloat16> y)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -220,7 +268,7 @@ namespace numbers
 		return powf(x, y);
 #endif
 	}
-	__device__ Number<bfloat16> mod(Number<bfloat16> x, Number<bfloat16> y)
+	DEVICE_INLINE Number<bfloat16> mod(Number<bfloat16> x, Number<bfloat16> y)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -228,7 +276,7 @@ namespace numbers
 		return fmodf(x, y);
 #endif
 	}
-	__device__ Number<bfloat16> exp(Number<bfloat16> x)
+	DEVICE_INLINE Number<bfloat16> exp(Number<bfloat16> x)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -236,7 +284,7 @@ namespace numbers
 		return expf(x);
 #endif
 	}
-	__device__ Number<bfloat16> log(Number<bfloat16> x)
+	DEVICE_INLINE Number<bfloat16> log(Number<bfloat16> x)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -244,7 +292,7 @@ namespace numbers
 		return logf(x);
 #endif
 	}
-	__device__ Number<bfloat16> tanh(Number<bfloat16> x)
+	DEVICE_INLINE Number<bfloat16> tanh(Number<bfloat16> x)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -252,7 +300,7 @@ namespace numbers
 		return tanhf(x);
 #endif
 	}
-	__device__ Number<bfloat16> expm1(Number<bfloat16> x)
+	DEVICE_INLINE Number<bfloat16> expm1(Number<bfloat16> x)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -260,7 +308,7 @@ namespace numbers
 		return expm1f(x);
 #endif
 	}
-	__device__ Number<bfloat16> log1p(Number<bfloat16> x)
+	DEVICE_INLINE Number<bfloat16> log1p(Number<bfloat16> x)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -268,7 +316,7 @@ namespace numbers
 		return log1pf(x);
 #endif
 	}
-	__device__ Number<bfloat16> sin(Number<bfloat16> x)
+	DEVICE_INLINE Number<bfloat16> sin(Number<bfloat16> x)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -276,7 +324,7 @@ namespace numbers
 		return sinf(x);
 #endif
 	}
-	__device__ Number<bfloat16> cos(Number<bfloat16> x)
+	DEVICE_INLINE Number<bfloat16> cos(Number<bfloat16> x)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO
@@ -284,7 +332,7 @@ namespace numbers
 		return cosf(x);
 #endif
 	}
-	__device__ Number<bfloat16> tan(Number<bfloat16> x)
+	DEVICE_INLINE Number<bfloat16> tan(Number<bfloat16> x)
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// TODO

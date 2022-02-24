@@ -47,22 +47,83 @@ namespace numbers
 		{
 			return m_data;
 		}
+		__device__ Number<double> operator-() const
+		{
+			return Number<double>(-m_data);
+		}
 	};
 
 	template<>
-	__device__ Number<double> zero()
+	DEVICE_INLINE Number<double> zero()
 	{
 		return Number<double>(0.0);
 	}
 	template<>
-	__device__ Number<double> one()
+	DEVICE_INLINE Number<double> one()
 	{
 		return Number<double>(1.0);
 	}
 	template<>
-	__device__ Number<double> epsilon()
+	DEVICE_INLINE Number<double> epsilon()
 	{
 		return Number<double>(2.22044604925031308084726333618164062e-16);
+	}
+
+	DEVICE_INLINE Number<double> sgn(Number<double> x) noexcept
+	{
+		return Number<double>(internal::sgn(static_cast<double>(x)));
+	}
+	DEVICE_INLINE Number<double> abs(Number<double> x)
+	{
+		return fabs(x);
+	}
+	DEVICE_INLINE Number<double> max(Number<double> x, Number<double> y)
+	{
+		return fmax(x, y);
+	}
+	DEVICE_INLINE Number<double> min(Number<double> x, Number<double> y)
+	{
+		return fmin(x, y);
+	}
+	DEVICE_INLINE Number<double> pow(Number<double> x, Number<double> y)
+	{
+		return powf(x, y);
+	}
+	DEVICE_INLINE Number<double> mod(Number<double> x, Number<double> y)
+	{
+		return fmodf(x, y);
+	}
+	DEVICE_INLINE Number<double> exp(Number<double> x)
+	{
+		return expf(x);
+	}
+	DEVICE_INLINE Number<double> log(Number<double> x)
+	{
+		return logf(x);
+	}
+	DEVICE_INLINE Number<double> tanh(Number<double> x)
+	{
+		return tanhf(x);
+	}
+	DEVICE_INLINE Number<double> expm1(Number<double> x)
+	{
+		return expm1f(x);
+	}
+	DEVICE_INLINE Number<double> log1p(Number<double> x)
+	{
+		return log1pf(x);
+	}
+	DEVICE_INLINE Number<double> sin(Number<double> x)
+	{
+		return sinf(x);
+	}
+	DEVICE_INLINE Number<double> cos(Number<double> x)
+	{
+		return cosf(x);
+	}
+	DEVICE_INLINE Number<double> tan(Number<double> x)
+	{
+		return tanf(x);
 	}
 
 } /* namespace numbers */

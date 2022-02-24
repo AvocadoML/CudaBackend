@@ -8,6 +8,7 @@
 #include <CudaBackend/cuda_backend.h>
 #include <backend_descriptors.hpp>
 
+#include "numbers/numbers.cuh"
 #include "activations.cuh"
 #include "utilities.hpp"
 
@@ -19,16 +20,30 @@
 namespace
 {
 	using namespace avocado::backend;
+
 	template<class Activation, typename T, typename U = T>
 	__global__ void kernel_act_forward(const T *input, T *output, U alpha, U beta, unsigned int elements)
 	{
+		numbers::Number<T> _alpha(alpha);
+		numbers::Number<T> _beta(beta);
 		Activation activation;
-		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
+		for (unsigned int i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * gridDim.x * blockDim.x)
 		{
-			T tmp = alpha * activation.forward(input[i]);
-			if (beta != zero<U>())
-				tmp += beta * output[i];
-			output[i] = tmp;
+			int elements_left = elements - i;
+			numbers::Number<T> tmp(input + i, elements_left);
+
+			tmp = _alpha * activation.forward(tmp);
+			if (_beta != numbers::zero<T>())
+			{
+				numbers::Number<T> dst(output + i, elements_left);
+				tmp = tmp + _beta * dst;
+			}
+			tmp.store(output + i, elements_left);
+
+//			Number<T> tmp = alpha * activation.forward();
+//			if (beta != zero<U>())
+//				tmp += beta * output[i];
+//			output[i] = tmp;
 		}
 	}
 	template<typename T, typename U = T>
@@ -36,34 +51,35 @@ namespace
 	{
 		dim3 blockDim(256);
 		dim3 gridDim = gridSize<1024>(elements, blockDim.x);
+
 		switch (activation)
 		{
 			case AVOCADO_ACTIVATION_LINEAR:
-				kernel_act_forward<ActivationLinear<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationLinear<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_SIGMOID:
-				kernel_act_forward<ActivationSigmoid<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationSigmoid<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_TANH:
-				kernel_act_forward<ActivationTanh<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationTanh<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_RELU:
-				kernel_act_forward<ActivationRelu<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationRelu<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_SELU:
-				kernel_act_forward<ActivationSelu<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationSelu<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_ELU:
-				kernel_act_forward<ActivationElu<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationElu<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_EXPONENTIAL:
-				kernel_act_forward<ActivationExponential<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationExponential<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_SOFTPLUS:
-				kernel_act_forward<ActivationSoftplus<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationSoftplus<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_SOFTSIGN:
-				kernel_act_forward<ActivationSoftsign<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(input, output, alpha, beta, elements);
+				kernel_act_forward<ActivationSoftsign<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, elements);
 				break;
 			default:
 				return AVOCADO_STATUS_BAD_PARAM;
@@ -77,10 +93,20 @@ namespace
 		Activation activation;
 		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
-			T tmp = alpha * activation.backward(gradient_next[i], output[i]);
+			numbers::Number<T> grad(gradient_next + i, elements - i);
+			numbers::Number<T> out(output + i, elements - i);
+			numbers::Number<T> tmp = alpha * activation.backward(grad, out);
 			if (beta != zero<U>())
-				tmp += beta * gradient_prev[i];
-			gradient_prev[i] = tmp;
+			{
+				numbers::Number<T> dst(gradient_prev + i, elements - i);
+				tmp += beta * dst;
+			}
+			tmp.store(gradient_prev + i, elements - i);
+
+//			T tmp = alpha * activation.backward(gradient_next[i], output[i]);
+//			if (beta != zero<U>())
+//				tmp += beta * gradient_prev[i];
+//			gradient_prev[i] = tmp;
 		}
 	}
 	template<typename T, typename U = T>
@@ -92,33 +118,33 @@ namespace
 		switch (activation)
 		{
 			case AVOCADO_ACTIVATION_LINEAR:
-				kernel_act_backward<ActivationLinear<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
+				kernel_act_backward<ActivationLinear<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_SIGMOID:
-				kernel_act_backward<ActivationSigmoid<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
+				kernel_act_backward<ActivationSigmoid<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_TANH:
-				kernel_act_backward<ActivationTanh<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
+				kernel_act_backward<ActivationTanh<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_RELU:
-				kernel_act_backward<ActivationRelu<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
+				kernel_act_backward<ActivationRelu<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_SELU:
-				kernel_act_backward<ActivationSelu<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
+				kernel_act_backward<ActivationSelu<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_ELU:
-				kernel_act_backward<ActivationElu<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
+				kernel_act_backward<ActivationElu<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta, elements);
 				break;
 			case AVOCADO_ACTIVATION_EXPONENTIAL:
-				kernel_act_backward<ActivationExponential<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta,
+				kernel_act_backward<ActivationExponential<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta,
 						elements);
 				break;
 			case AVOCADO_ACTIVATION_SOFTPLUS:
-				kernel_act_backward<ActivationSoftplus<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta,
+				kernel_act_backward<ActivationSoftplus<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta,
 						elements);
 				break;
 			case AVOCADO_ACTIVATION_SOFTSIGN:
-				kernel_act_backward<ActivationSoftsign<T>, T, U> <<<blockDim, gridDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta,
+				kernel_act_backward<ActivationSoftsign<T>, T, U> <<<gridDim, blockDim, 0, stream>>>(gradient_prev, gradient_next, output, alpha, beta,
 						elements);
 				break;
 			default:
@@ -144,6 +170,12 @@ namespace avocado
 
 			switch (cuda::getTensor(yDesc).dtype())
 			{
+				case AVOCADO_DTYPE_FLOAT16:
+					return helper_act_forward(stream, cuda::getPointer<float16>(xMem), cuda::getPointer<float16>(yMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), elements, activation);
+				case AVOCADO_DTYPE_BFLOAT16:
+					return helper_act_forward(stream, cuda::getPointer<bfloat16>(xMem), cuda::getPointer<bfloat16>(yMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), elements, activation);
 				case AVOCADO_DTYPE_FLOAT32:
 					return helper_act_forward(stream, cuda::getPointer<float>(xMem), cuda::getPointer<float>(yMem), cuda::getAlphaValue(alpha),
 							cuda::getBetaValue(beta), elements, activation);

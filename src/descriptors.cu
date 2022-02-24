@@ -135,8 +135,9 @@ namespace avocado
 				}
 			} catch (std::exception &e)
 			{
+				return AVOCADO_STATUS_INTERNAL_ERROR;
 			}
-			return AVOCADO_STATUS_INTERNAL_ERROR;
+			return AVOCADO_STATUS_SUCCESS;
 		}
 		avStatus_t cudaCopyMemoryToHost(avContextDescriptor_t context, void *dst, const avMemoryDescriptor_t src, avSize_t srcOffset, avSize_t bytes)
 		{
@@ -193,16 +194,7 @@ namespace avocado
 
 		int cudaGetNumberOfDevices()
 		{
-			static const int result = []()
-			{
-				int tmp = 0;
-				cudaError_t status = cudaGetDeviceCount(&tmp);
-				if (status != cudaSuccess)
-				return 0;
-				else
-				return tmp;
-			}();
-			return result;
+			return cuda::get_number_of_devices();
 		}
 
 		avStatus_t cudaCreateContextDescriptor(avContextDescriptor_t *result, avDeviceIndex_t deviceIndex)
@@ -309,7 +301,7 @@ namespace avocado
 		{
 			try
 			{
-//				cuda::getConvolution(desc).set(mode, nbDims, strides, padding, dilation, groups, paddingValue);
+				cuda::getConvolution(desc).set(mode, nbDims, strides, padding, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -321,7 +313,7 @@ namespace avocado
 		{
 			try
 			{
-//				cuda::getConvolution(desc).get(mode, nbDims, strides, padding, dilation, groups, paddingValue);
+				cuda::getConvolution(desc).get(mode, nbDims, strides, padding, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -337,70 +329,37 @@ namespace avocado
 		{
 			return cuda::destroy<cuda::OptimizerDescriptor>(desc);
 		}
-		avStatus_t cudaSetOptimizerSGD(avOptimizerDescriptor_t desc, double learningRate, bool useMomentum, bool useNesterov, double beta1)
+		avStatus_t cudaSetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t type, double learningRate, const double coefficients[],
+				const bool flags[])
 		{
 			try
 			{
-//				cuda::getOptimizer(desc).set_sgd(learningRate, useMomentum, useNesterov, beta1);
+				cuda::getOptimizer(desc).set(type, learningRate, coefficients, flags);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
-		avStatus_t cudaGetOptimizerSGD(avOptimizerDescriptor_t desc, double *learningRate, bool *useMomentum, bool *useNesterov, double *beta1)
+		avStatus_t cudaGetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t *type, double *learningRate, double coefficients[],
+				bool flags[])
 		{
 			try
 			{
-//				cuda::getOptimizer(desc).get_sgd(learningRate, useMomentum, useNesterov, beta1);
+				cuda::getOptimizer(desc).get(type, learningRate, coefficients, flags);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
-		avStatus_t cudaSetOptimizerADAM(avOptimizerDescriptor_t desc, double learningRate, double beta1, double beta2)
-		{
-			try
-			{
-//				cuda::getOptimizer(desc).set_adam(learningRate, beta1, beta2);
-			} catch (std::exception &e)
-			{
-				return AVOCADO_STATUS_INTERNAL_ERROR;
-			}
-			return AVOCADO_STATUS_SUCCESS;
-		}
-		avStatus_t cudaGetOptimizerADAM(avOptimizerDescriptor_t desc, double *learningRate, double *beta1, double *beta2)
-		{
-			try
-			{
-//				cuda::getOptimizer(desc).get_adam(learningRate, beta1, beta2);
-			} catch (std::exception &e)
-			{
-				return AVOCADO_STATUS_INTERNAL_ERROR;
-			}
-			return AVOCADO_STATUS_SUCCESS;
-		}
-		avStatus_t cudaGetOptimizerType(avOptimizerDescriptor_t desc, avOptimizerType_t *type)
-		{
-			if (type == nullptr)
-				return AVOCADO_STATUS_BAD_PARAM;
-			try
-			{
-//				cuda::getOptimizer(desc).get_type(type);
-			} catch (std::exception &e)
-			{
-				return AVOCADO_STATUS_INTERNAL_ERROR;
-			}
-			return AVOCADO_STATUS_SUCCESS;
-		}
-		avStatus_t cudaGetOptimizerWorkspaceSize(avOptimizerDescriptor_t desc, const avTensorDescriptor_t wDesc, int *result)
+		avStatus_t cudaGetOptimizerWorkspaceSize(avOptimizerDescriptor_t desc, const avTensorDescriptor_t wDesc, avSize_t *result)
 		{
 			if (result == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-//				cuda::getOptimizer(desc).get_workspace_size(result, cuda::getTensor(wDesc));
+				cuda::getOptimizer(desc).get_workspace_size(result, cuda::getTensor(wDesc));
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
