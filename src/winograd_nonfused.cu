@@ -294,6 +294,7 @@ namespace
 	__global__ void kernel_winograd_weight_transform(DataType* matrices, MatrixShape<TileSize> matrix_shape, const DataType* weights, TensorShape weights_shape,
 			bool invert)
 	{
+//		constexpr int TileSize = TransformSize + KernelSize - 1;
 		SharedStorage<KernelSize, KernelSize, Elements, ComputeType> storage;
 
 		for (int filter = blockIdx.x * blockDim.x + threadIdx.x; filter < weights_shape.filters; filter += gridDim.x * blockDim.x)
@@ -653,36 +654,8 @@ namespace avocado
 	namespace backend
 	{
 
-		avSize_t cuda_winogradGetWorkspaceSize(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t xDesc,
-				const avTensorDescriptor_t wDesc)
-		{
-			if (cuda::getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_EXPLICIT_GEMM)
-			{
-				return 0; // TODO
-			}
-			if (cuda::getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_WINOGRAD_NON_FUSED)
-			{
-				switch (cuda::getTensor(wDesc).dtype())
-				{
-					case AVOCADO_DTYPE_INT8:
-						return 0; // TODO
-					case AVOCADO_DTYPE_FLOAT16:
-					case AVOCADO_DTYPE_BFLOAT16:
-					case AVOCADO_DTYPE_FLOAT32:
-					case AVOCADO_DTYPE_FLOAT64:
-						return 0; // TODO
-				}
-			}
-			if (cuda::getConvolution(config).algorithm == AVOCADO_CONVOLUTION_ALGORITHM_WINOGRAD_FUSED)
-			{
-				if (cuda::getTensor(wDesc).dtype() == AVOCADO_DTYPE_INT8)
-					return 0; // TODO
-			}
-			return 0;
-		}
-
-		avStatus_t cuda_winogradWeightTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t wDesc,
-				const avMemoryDescriptor_t wMem, const avTensorDescriptor_t matricesDesc, avMemoryDescriptor_t matricesMem)
+		avStatus_t cudaWinogradWeightTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, int transformSize,
+				const avTensorDescriptor_t wDesc, const avMemoryDescriptor_t wMem, const avTensorDescriptor_t matricesDesc, avMemoryDescriptor_t matricesMem)
 		{
 			avStatus_t status = TransformSetup::setup();
 			if (status != AVOCADO_STATUS_SUCCESS)
@@ -708,8 +681,9 @@ namespace avocado
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
-		avStatus_t cuda_winogradInputTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t xDesc,
-				const avMemoryDescriptor_t xMem, const avTensorDescriptor_t matricesDesc, avMemoryDescriptor_t matricesMem)
+		avStatus_t cudaWinogradInputTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, int transformSize,
+				const avTensorDescriptor_t wDesc, const avTensorDescriptor_t xDesc, const avMemoryDescriptor_t xMem, const avTensorDescriptor_t matricesDesc,
+				avMemoryDescriptor_t matricesMem)
 		{
 			avStatus_t status = TransformSetup::setup();
 			if (status != AVOCADO_STATUS_SUCCESS)
@@ -740,10 +714,10 @@ namespace avocado
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
-		avStatus_t cuda_winogradOutputTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const void *alpha1,
-				const avTensorDescriptor_t matricesDesc, const avMemoryDescriptor_t matricesMem, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem,
-				const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem, const void *alpha2, const avTensorDescriptor_t zDesc,
-				const avMemoryDescriptor_t zMem, const void *beta, const avActivationType_t activation)
+		avStatus_t cudaWinogradOutputTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, int transformSize,
+				const avTensorDescriptor_t wDesc, const void *alpha1, const avTensorDescriptor_t matricesDesc, const avMemoryDescriptor_t matricesMem,
+				const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem, const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem,
+				const void *alpha2, const avTensorDescriptor_t zDesc, const avMemoryDescriptor_t zMem, const void *beta, avActivationType_t activation)
 		{
 			avStatus_t status = TransformSetup::setup();
 			if (status != AVOCADO_STATUS_SUCCESS)
@@ -778,8 +752,9 @@ namespace avocado
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
-		avStatus_t cuda_winogradGradientTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t dyDesc,
-				const avMemoryDescriptor_t dyMem, const avTensorDescriptor_t matricesDesc, avMemoryDescriptor_t matricesMem)
+		avStatus_t cudaWinogradGradientTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, int transformSize,
+				const avTensorDescriptor_t wDesc, const avTensorDescriptor_t dyDesc, const avMemoryDescriptor_t dyMem, const avTensorDescriptor_t matricesDesc,
+				avMemoryDescriptor_t matricesMem)
 		{
 			avStatus_t status = TransformSetup::setup();
 			if (status != AVOCADO_STATUS_SUCCESS)
@@ -810,7 +785,7 @@ namespace avocado
 			return AVOCADO_STATUS_SUCCESS;
 		}
 
-		avStatus_t cuda_winogradUpdateTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const void *alpha,
+		avStatus_t cudaWinogradUpdateTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, int transformSize, const void *alpha,
 				const avTensorDescriptor_t matricesDesc, const avMemoryDescriptor_t matricesMem, const void *beta, const avTensorDescriptor_t dwDesc,
 				avMemoryDescriptor_t dwMem)
 		{
