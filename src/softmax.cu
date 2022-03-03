@@ -224,6 +224,7 @@ namespace
 	template<typename T, typename U = T>
 	void helper_softmax_forward(cudaStream_t stream, const T *input, T *output, U alpha, U beta, unsigned int first_dim, unsigned int last_dim)
 	{
+// FIXME
 //		if (last_dim <= 4)
 //		{
 //			dim3 blockDim(256);
@@ -232,26 +233,27 @@ namespace
 //			return;
 //		}
 //		if (4 < last_dim and last_dim <= 32)
+//		{
+//			dim3 blockDim(32);
+//			dim3 gridDim = gridSize<1024>(first_dim * last_dim, blockDim.x);
+//			kernel_softmax_forward_small_last_dim<1024, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
+//			return;
+//		}
+		if (last_dim <= 1024)
+//		if (32 < last_dim and last_dim <= 1024)
 		{
-			dim3 blockDim(32);
-			dim3 gridDim = gridSize<1024>(first_dim * last_dim, blockDim.x);
-			kernel_softmax_forward_small_last_dim<1024, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
+			dim3 blockDim(256);
+			dim3 gridDim = gridSize<1024>(first_dim, 1);
+			kernel_softmax_forward_medium_last_dim<1024, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
 			return;
 		}
-//		if (32 < last_dim and last_dim <= 1024)
-//		{
-//			dim3 blockDim(256);
-//			dim3 gridDim = gridSize<1024>(first_dim, 1);
-//			kernel_softmax_forward_medium_last_dim<1024, T, U> <<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
-//			return;
-//		}
-//		if (1024 < last_dim)
-//		{
-//			dim3 blockDim(256);
-//			dim3 gridDim = gridSize<1024>(first_dim, 1);
-//			kernel_softmax_forward_large_last_dim<<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
-//			return;
-//		}
+		if (last_dim > 1024)
+		{
+			dim3 blockDim(256);
+			dim3 gridDim = gridSize<1024>(first_dim, 1);
+			kernel_softmax_forward_large_last_dim<<<gridDim, blockDim, 0, stream>>>(input, output, alpha, beta, first_dim, last_dim);
+			return;
+		}
 	}
 
 	template<typename T, typename U = T>
