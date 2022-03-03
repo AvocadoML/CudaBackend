@@ -231,6 +231,15 @@ namespace numbers
 			return Number<float16>(0.0f);
 		}
 #endif
+		__device__ Number<float16> operator~() const
+		{
+#if __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+			const int32_t tmp = ~reinterpret_cast<const int32_t*>(&m_data)[0];
+			return Number<float16>(reinterpret_cast<const float16*>(&tmp)[0]);
+#else
+			return Number<float16>();
+#endif
+		}
 	};
 
 	template<>
@@ -305,6 +314,36 @@ namespace numbers
 		return Number<float16>(fmin(static_cast<float>(x.low()), static_cast<float>(y.low())), fmin(static_cast<float>(x.high()), static_cast<float>(y.high())));
 #elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
 		return fmin(x, y);
+#else
+		return Number<float16>();
+#endif
+	}
+	DEVICE_INLINE Number<float16> ceil(Number<float16> x)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return Number<float16>(ceilf(static_cast<float>(x.low())), ceilf(static_cast<float>(x.high())));
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return ceilf(x);
+#else
+		return Number<float16>();
+#endif
+	}
+	DEVICE_INLINE Number<float16> floor(Number<float16> x)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return Number<float16>(floorf(static_cast<float>(x.low())), floorf(static_cast<float>(x.high())));
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return floorf(x);
+#else
+		return Number<float16>();
+#endif
+	}
+	DEVICE_INLINE Number<float16> sqrt(Number<float16> x)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return Number<float16>(sqrtf(static_cast<float>(x.low())), sqrtf(static_cast<float>(x.high())));
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return sqrtf(x);
 #else
 		return Number<float16>();
 #endif

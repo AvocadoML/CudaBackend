@@ -192,6 +192,11 @@ namespace numbers
 			return Number<bfloat16>(-m_data);
 		}
 #endif
+		__device__ Number<bfloat16> operator~() const
+		{
+			const int32_t tmp = ~reinterpret_cast<const int32_t*>(&m_data)[0];
+			return Number<bfloat16>(reinterpret_cast<const bfloat16*>(&tmp)[0]);
+		}
 	};
 
 	template<>
@@ -258,6 +263,30 @@ namespace numbers
 		return Number<bfloat16>(fmin(static_cast<float>(x.low()), static_cast<float>(y.low())), fmin(static_cast<float>(x.high()), static_cast<float>(y.high())));
 #else
 		return fmin(x, y);
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> ceil(Number<bfloat16> x)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(ceilf(static_cast<float>(x.low())), ceilf(static_cast<float>(x.high())));
+#else
+		return ceilf(x);
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> floor(Number<bfloat16> x)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(floorf(static_cast<float>(x.low())), floorf(static_cast<float>(x.high())));
+#else
+		return floorf(x);
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> sqrt(Number<bfloat16> x)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(sqrtf(static_cast<float>(x.low())), sqrtf(static_cast<float>(x.high())));
+#else
+		return sqrtf(x);
 #endif
 	}
 	DEVICE_INLINE Number<bfloat16> pow(Number<bfloat16> x, Number<bfloat16> y)

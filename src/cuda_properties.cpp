@@ -102,7 +102,7 @@ namespace avocado
 					reinterpret_cast<bool*>(result)[0] = compute_capability(prop) >= 53;
 					break;
 				case AVOCADO_DEVICE_SUPPORTS_BFLOAT16:
-					reinterpret_cast<bool*>(result)[0] = compute_capability(prop) >= 75;
+					reinterpret_cast<bool*>(result)[0] = true; //compute_capability(prop) >= 75;
 					break;
 				case AVOCADO_DEVICE_SUPPORTS_SINGLE_PRECISION:
 					reinterpret_cast<bool*>(result)[0] = true;
@@ -170,9 +170,9 @@ namespace avocado
 					cudaDeviceProp prop;
 					cudaError_t status = cudaGetDeviceProperties(&prop, i);
 					if (status != cudaSuccess)
-						result.push_back(0);
+					result.push_back(0);
 					else
-						result.push_back(compute_capability(prop));
+					result.push_back(compute_capability(prop));
 				}
 				return result;
 			}();

@@ -51,6 +51,11 @@ namespace numbers
 		{
 			return Number<double>(-m_data);
 		}
+		__device__ Number<double> operator~() const
+		{
+			const int64_t tmp = ~reinterpret_cast<const int64_t*>(&m_data)[0];
+			return Number<double>(reinterpret_cast<const double*>(&tmp)[0]);
+		}
 	};
 
 	template<>
@@ -84,6 +89,18 @@ namespace numbers
 	DEVICE_INLINE Number<double> min(Number<double> x, Number<double> y)
 	{
 		return fmin(x, y);
+	}
+	DEVICE_INLINE Number<double> ceil(Number<double> x)
+	{
+		return ceilf(x);
+	}
+	DEVICE_INLINE Number<double> floor(Number<double> x)
+	{
+		return floorf(x);
+	}
+	DEVICE_INLINE Number<double> sqrt(Number<double> x)
+	{
+		return sqrtf(x);
 	}
 	DEVICE_INLINE Number<double> pow(Number<double> x, Number<double> y)
 	{
