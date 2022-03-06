@@ -59,7 +59,7 @@ namespace numbers
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// bfloat16x2 m_data;
 #else
-		float m_data = 0.0f;
+		float m_data;
 #endif
 	public:
 		__device__ Number() = default;
@@ -91,26 +91,26 @@ namespace numbers
 //		{
 //			assert(ptr != nullptr);
 //			if (num >= 2)
-//			m_data = reinterpret_cast<const bfloat162*>(ptr)[0];
+//				m_data = bfloat162(ptr[0], ptr[1]);
 //			else
 //			{
 //				if (num == 1)
-//				m_data = bfloat162(ptr[0], 0.0f);
+//					m_data = bfloat162(ptr[0], 0.0f);
 //				else
-//				m_data = bfloat162(0.0f, 0.0f);
+//					m_data = bfloat162(0.0f, 0.0f);
 //			}
 //		}
 //		__device__ void load(const float *ptr, int num = 2)
 //		{
 //			assert(ptr != nullptr);
 //			if (num >= 2)
-//			m_data = bfloat162(ptr[0], ptr[1]);
+//				m_data = bfloat162(ptr[0], ptr[1]);
 //			else
 //			{
 //				if (num == 1)
-//				m_data = bfloat162(ptr[0], 0.0f);
+//					m_data = bfloat162(ptr[0], 0.0f);
 //				else
-//				m_data = bfloat162(0.0f, 0.0f);
+//					m_data = bfloat162(0.0f, 0.0f);
 //			}
 //		}
 //		__device__ void store(bfloat16 *ptr, int num = 2) const
@@ -120,11 +120,12 @@ namespace numbers
 //			{
 //				default:
 //				case 2:
-//				reinterpret_cast<bfloat162*>(ptr)[0] = m_data;
-//				break;
+//					ptr[0] = m_data.x;
+//					ptr[1] = m_data.y;
+//					break;
 //				case 1:
-//				ptr[0] = m_data.x;
-//				break;
+//					ptr[0] = m_data.x;
+//					break;
 //			}
 //		}
 //		__device__ void store(float *ptr, int num = 2) const
@@ -134,12 +135,12 @@ namespace numbers
 //			{
 //				default:
 //				case 2:
-//				ptr[0] = static_cast<float>(m_data.x);
-//				ptr[1] = static_cast<float>(m_data.y);
-//				break;
+//					ptr[0] = static_cast<float>(m_data.x);
+//					ptr[1] = static_cast<float>(m_data.y);
+//					break;
 //				case 1:
-//				ptr[0] = m_data.x;
-//				break;
+//					ptr[0] = m_data.x;
+//					break;
 //			}
 //		}
 //		__device__ operator bfloat162() const
@@ -200,7 +201,7 @@ namespace numbers
 	};
 
 	template<>
-	DEVICE_INLINE int length<bfloat16>()
+	DEVICE_INLINE constexpr int length<bfloat16>()
 	{
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		return 2;
@@ -223,6 +224,39 @@ namespace numbers
 	DEVICE_INLINE Number<bfloat16> epsilon()
 	{
 		return Number<bfloat16>(1.1920928955078125e-7f);
+	}
+
+	DEVICE_INLINE Number<bfloat16> operator+(const Number<bfloat16> &lhs, const Number<bfloat16> &rhs)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(static_cast<bfloat16x2>(lhs) + static_cast<bfloat16x2>(rhs));
+#else
+		return Number<bfloat16>(static_cast<float>(lhs) + static_cast<float>(rhs));
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> operator-(const Number<bfloat16> &lhs, const Number<bfloat16> &rhs)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(static_cast<bfloat16x2>(lhs) - static_cast<bfloat16x2>(rhs));
+#else
+		return Number<bfloat16>(static_cast<float>(lhs) - static_cast<float>(rhs));
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> operator*(const Number<bfloat16> &lhs, const Number<bfloat16> &rhs)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(static_cast<bfloat16x2>(lhs) * static_cast<bfloat16x2>(rhs));
+#else
+		return Number<bfloat16>(static_cast<float>(lhs) * static_cast<float>(rhs));
+#endif
+	}
+	DEVICE_INLINE Number<bfloat16> operator/(const Number<bfloat16> &lhs, const Number<bfloat16> &rhs)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		return Number<bfloat16>(static_cast<bfloat16x2>(lhs) / static_cast<bfloat16x2>(rhs));
+#else
+		return Number<bfloat16>(static_cast<float>(lhs) / static_cast<float>(rhs));
+#endif
 	}
 
 	DEVICE_INLINE Number<bfloat16> sgn(Number<bfloat16> x) noexcept

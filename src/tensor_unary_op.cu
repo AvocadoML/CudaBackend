@@ -154,7 +154,7 @@ namespace
 	__global__ void kernel_unary_logical_op(T* dst, const T *input, const unsigned int elements)
 	{
 		Op operation;
-		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+		for (unsigned int i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * blockDim.x * gridDim.x)
 		{
 			numbers::Number<T> tmp(input + i, elements - i);
 			tmp = operation(tmp);
@@ -167,7 +167,7 @@ namespace
 	{
 		numbers::Number<T> _alpha(alpha);
 		Op operation;
-		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+		for (unsigned int i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * blockDim.x * gridDim.x)
 		{
 			numbers::Number<T> tmp(input + i, elements - i);
 			tmp = operation(tmp * _alpha);
@@ -180,15 +180,12 @@ namespace
 		numbers::Number<T> _alpha(alpha);
 		numbers::Number<T> _beta(beta);
 		Op operation;
-		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+		for (unsigned int i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * blockDim.x * gridDim.x)
 		{
 			numbers::Number<T> tmp(input + i, elements - i);
 			tmp = operation(tmp * _alpha);
 			if (_beta != numbers::zero<T>())
-			{
-				numbers::Number<T> tmp2(dst + i, elements - i);
-				tmp = tmp + _beta * tmp2;
-			}
+				tmp += _beta * numbers::Number<T>(dst + i, elements - i);
 			tmp.store(dst + i, elements - i);
 		}
 	}

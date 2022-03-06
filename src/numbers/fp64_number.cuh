@@ -16,7 +16,7 @@ namespace numbers
 	class Number<double>
 	{
 	private:
-		double m_data = 0.0;
+		double m_data;
 	public:
 		__device__ Number() = default;
 		__device__ Number(double x) :
@@ -72,6 +72,23 @@ namespace numbers
 	DEVICE_INLINE Number<double> epsilon()
 	{
 		return Number<double>(2.22044604925031308084726333618164062e-16);
+	}
+
+	DEVICE_INLINE Number<double> operator+(const Number<double> &lhs, const Number<double> &rhs)
+	{
+		return Number<double>(static_cast<double>(lhs) + static_cast<double>(rhs));
+	}
+	DEVICE_INLINE Number<double> operator-(const Number<double> &lhs, const Number<double> &rhs)
+	{
+		return Number<double>(static_cast<double>(lhs) - static_cast<double>(rhs));
+	}
+	DEVICE_INLINE Number<double> operator*(const Number<double> &lhs, const Number<double> &rhs)
+	{
+		return Number<double>(static_cast<double>(lhs) * static_cast<double>(rhs));
+	}
+	DEVICE_INLINE Number<double> operator/(const Number<double> &lhs, const Number<double> &rhs)
+	{
+		return Number<double>(static_cast<double>(lhs) / static_cast<double>(rhs));
 	}
 
 	DEVICE_INLINE Number<double> sgn(Number<double> x) noexcept

@@ -25,7 +25,13 @@ namespace numbers
 	class Number;
 
 	template<typename T>
-	__device__ int length()
+	__device__ bool is_aligned(const void * ptr)
+	{
+		return (reinterpret_cast<std::uintptr_t>(ptr) % sizeof(T)) == 0;
+	}
+
+	template<typename T>
+	__device__ constexpr int length()
 	{
 		return 1;
 	}

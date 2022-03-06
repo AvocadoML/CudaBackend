@@ -12,7 +12,7 @@
 
 #include <cuda_fp16.hpp>
 
-#define FP16_COMPUTE_MIN_ARCH 700
+#define FP16_COMPUTE_MIN_ARCH 530
 #define FP16_STORAGE_MIN_ARCH 530
 
 namespace avocado
@@ -36,39 +36,39 @@ namespace numbers
 #if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
 		float16x2 m_data;
 #elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
-		float m_data = 0.0f;
+		float m_data;
 #else
 #endif
 	public:
 		__device__ Number() = default;
 #if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
 		__device__ Number(float16x2 x) :
-		m_data(x)
+				m_data(x)
 		{
 		}
 		__device__ Number(float16 x) :
-		m_data(x, x)
+				m_data(x, x)
 		{
 		}
 		__device__ Number(float16 x, float16 y) :
-		m_data(x, y)
+				m_data(x, y)
 		{
 		}
 		__device__ Number(float x) :
-		m_data(x, x)
+				m_data(x, x)
 		{
 		}
 		__device__ Number(float x, float y) :
-		m_data(x, y)
+				m_data(x, y)
 		{
 		}
 #elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
 		__device__ Number(float16 x) :
-				m_data(x)
+		m_data(x)
 		{
 		}
 		__device__ Number(float x) :
-				m_data(x)
+		m_data(x)
 		{
 		}
 #else
@@ -95,55 +95,64 @@ namespace numbers
 		{
 			assert(ptr != nullptr);
 			if (num >= 2)
-			m_data = reinterpret_cast<const float16x2*>(ptr)[0];
+			{
+				if (is_aligned<float16x2>(ptr))
+					m_data = reinterpret_cast<const float16x2*>(ptr)[0];
+				else
+					m_data = float16x2(ptr[0], ptr[1]);
+			}
 			else
 			{
 				if (num == 1)
-				m_data = float16x2(ptr[0], 0.0f);
+					m_data = float16x2(ptr[0], 0.0f);
 				else
-				m_data = float16x2(0.0f, 0.0f);
+					m_data = float16x2(0.0f, 0.0f);
 			}
 		}
 		__device__ void load(const float *ptr, int num = 2)
 		{
 			assert(ptr != nullptr);
 			if (num >= 2)
-			m_data = float16x2(ptr[0], ptr[1]);
+				m_data = float16x2(ptr[0], ptr[1]);
 			else
 			{
 				if (num == 1)
-				m_data = float16x2(ptr[0], 0.0f);
+					m_data = float16x2(ptr[0], 0.0f);
 				else
-				m_data = float16x2(0.0f, 0.0f);
+					m_data = float16x2(0.0f, 0.0f);
 			}
 		}
 		__device__ void store(float16 *ptr, int num = 2) const
 		{
 			assert(ptr != nullptr);
-			switch (num)
+			if (num >= 2)
 			{
-				default:
-				case 2:
-				reinterpret_cast<float16x2*>(ptr)[0] = m_data;
-				break;
-				case 1:
-				ptr[0] = m_data.x;
-				break;
+				if (is_aligned<float16x2>(ptr))
+					reinterpret_cast<float16x2*>(ptr)[0] = m_data;
+				else
+				{
+					ptr[0] = m_data.x;
+					ptr[1] = m_data.y;
+				}
+			}
+			else
+			{
+				if (num == 1)
+					ptr[0] = m_data.x;
 			}
 		}
 		__device__ void store(float *ptr, int num = 2) const
 		{
 			assert(ptr != nullptr);
-			switch (num)
+			if (num >= 2)
 			{
-				default:
-				case 2:
 				ptr[0] = static_cast<float>(m_data.x);
 				ptr[1] = static_cast<float>(m_data.y);
-				break;
-				case 1:
-				ptr[0] = m_data.x;
-				break;
+			}
+			else
+			{
+				if (num == 1)
+					ptr[0] = static_cast<float>(m_data.x);
 			}
 		}
 		__device__ operator float16x2() const
@@ -175,25 +184,25 @@ namespace numbers
 		{
 			assert(ptr != nullptr);
 			if (num >= 1)
-				m_data = static_cast<float>(ptr[0]);
+			m_data = static_cast<float>(ptr[0]);
 		}
 		__device__ void load(const float *ptr, int num = 1)
 		{
 			assert(ptr != nullptr);
 			if (num >= 1)
-				m_data = ptr[0];
+			m_data = ptr[0];
 		}
 		__device__ void store(float16 *ptr, int num = 1) const
 		{
 			assert(ptr != nullptr);
 			if (num >= 1)
-				ptr[0] = m_data;
+			ptr[0] = m_data;
 		}
 		__device__ void store(float *ptr, int num = 1) const
 		{
 			assert(ptr != nullptr);
 			if (num >= 1)
-				ptr[0] = m_data;
+			ptr[0] = m_data;
 		}
 		__device__ operator float() const
 		{
@@ -243,7 +252,7 @@ namespace numbers
 	};
 
 	template<>
-	DEVICE_INLINE int length<float16>()
+	DEVICE_INLINE constexpr int length<float16>()
 	{
 #if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
 		return 2;
@@ -268,6 +277,47 @@ namespace numbers
 	DEVICE_INLINE Number<float16> epsilon()
 	{
 		return Number<float16>(0.00006103515625f);
+	}
+
+	DEVICE_INLINE Number<float16> operator+(const Number<float16> &lhs, const Number<float16> &rhs)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return Number<float16>(static_cast<float16x2>(lhs) + static_cast<float16x2>(rhs));
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return Number<float16>(static_cast<float>(lhs) + static_cast<float>(rhs));
+#else
+		return Number<float16>();
+#endif
+	}
+	DEVICE_INLINE Number<float16> operator-(const Number<float16> &lhs, const Number<float16> &rhs)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return Number<float16>(static_cast<float16x2>(lhs) - static_cast<float16x2>(rhs));
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return Number<float16>(static_cast<float>(lhs) - static_cast<float>(rhs));
+#else
+		return Number<float16>();
+#endif
+	}
+	DEVICE_INLINE Number<float16> operator*(const Number<float16> &lhs, const Number<float16> &rhs)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return Number<float16>(static_cast<float16x2>(lhs) * static_cast<float16x2>(rhs));
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return Number<float16>(static_cast<float>(lhs) * static_cast<float>(rhs));
+#else
+		return Number<float16>();
+#endif
+	}
+	DEVICE_INLINE Number<float16> operator/(const Number<float16> &lhs, const Number<float16> &rhs)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return Number<float16>(static_cast<float16x2>(lhs) / static_cast<float16x2>(rhs));
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return Number<float16>(static_cast<float>(lhs) / static_cast<float>(rhs));
+#else
+		return Number<float16>();
+#endif
 	}
 
 	DEVICE_INLINE Number<float16> sgn(Number<float16> x) noexcept
@@ -402,7 +452,7 @@ namespace numbers
 	DEVICE_INLINE Number<float16> expm1(Number<float16> x)
 	{
 #if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
-		return h2exp(x) - one<float16>();
+		return h2exp(x) - static_cast<__half2 >(one<float16>());
 #elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
 		return expm1f(x);
 #else

@@ -11,6 +11,7 @@
 #include "activations.cuh"
 #include "logical_ops.cuh"
 #include "utilities.hpp"
+#include "numbers/numbers.cuh"
 
 #include <cstring>
 
@@ -25,163 +26,244 @@ namespace
 	class BinaryOpAdd
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
 			return lhs + rhs;
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return lhs + rhs;
+//		}
 	};
 	template<typename T>
 	class BinaryOpAddSquare
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return lhs + square(rhs);
+			return lhs + numbers::square(rhs);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return lhs + square(rhs);
+//		}
 	};
 	template<typename T>
 	class BinaryOpSub
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
 			return lhs - rhs;
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return lhs - rhs;
+//		}
 	};
 	template<typename T>
 	class BinaryOpMul
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
 			return lhs * rhs;
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return lhs * rhs;
+//		}
 	};
 	template<typename T>
 	class BinaryOpDiv
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
 			return lhs / rhs;
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return lhs / rhs;
+//		}
 	};
 	template<typename T>
 	class BinaryOpMod
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return fmodf(lhs, rhs);
+			return numbers::mod(lhs, rhs);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return fmodf(lhs, rhs);
+//		}
 	};
 	template<typename T>
 	class BinaryOpPow
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return powf(lhs, rhs);
+			return numbers::pow(lhs, rhs);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return powf(lhs, rhs);
+//		}
 	};
 	template<typename T>
 	class BinaryOpMin
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return min(lhs, rhs);
+			return numbers::min(lhs, rhs);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return min(lhs, rhs);
+//		}
 	};
 	template<typename T>
 	class BinaryOpMax
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return max(lhs, rhs);
+			return numbers::max(lhs, rhs);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return max(lhs, rhs);
+//		}
 	};
 	template<typename T>
 	class BinaryOpCompareEq
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return (lhs == rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+			return numbers::Number<T>();
+//			return (lhs == rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return (lhs == rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+//		}
 	};
 	template<typename T>
 	class BinaryOpCompareNeq
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return (lhs != rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+			return numbers::Number<T>();
+//			return (lhs != rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return (lhs != rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+//		}
 	};
 	template<typename T>
 	class BinaryOpCompareGt
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return (lhs > rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+			return numbers::Number<T>();
+//			return (lhs > rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return (lhs > rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+//		}
 	};
 	template<typename T>
 	class BinaryOpCompareGe
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return (lhs >= rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+			return numbers::Number<T>();
+//			return (lhs >= rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return (lhs >= rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+//		}
 	};
 	template<typename T>
 	class BinaryOpCompareLt
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return (lhs < rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+			return numbers::Number<T>();
+//			return (lhs < rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return (lhs < rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+//		}
 	};
 	template<typename T>
 	class BinaryOpCompareLe
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return (lhs <= rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+			return numbers::Number<T>();
+//			return (lhs <= rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return (lhs <= rhs) ? bit_cast<T>(-1) : bit_cast<T>(0);
+//		}
 	};
 	template<typename T>
 	class BinaryOpLogicalAnd
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return lhs & rhs;
+			return numbers::Number<T>();
+//			return lhs & rhs;
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return lhs & rhs;
+//		}
 	};
 	template<typename T>
 	class BinaryOpLogicalOr
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return lhs | rhs;
+			return numbers::Number<T>();
+//			return lhs | rhs;
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return lhs | rhs;
+//		}
 	};
 	template<typename T>
 	class BinaryOpLogicalXor
 	{
 	public:
-		__device__ T operator()(T lhs, T rhs) const noexcept
+		__device__ numbers::Number<T> operator()(numbers::Number<T> lhs, numbers::Number<T> rhs) const noexcept
 		{
-			return lhs ^ rhs;
+			return numbers::Number<T>();
+//			return lhs ^ rhs;
 		}
+//		__device__ T operator()(T lhs, T rhs) const noexcept
+//		{
+//			return lhs ^ rhs;
+//		}
 	};
 
 	/*
@@ -196,9 +278,9 @@ namespace
 	template<class Op, typename T>
 	__global__ void kernel_binary_logical_op_same_shape(T* dst, const T *input1, const T *input2, unsigned int elements)
 	{
-		Op operation;
-		for (unsigned int i = blockIdx.y * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
-			dst[i] = operation(input1[i], input2[i]);
+//		Op operation;
+//		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+//			dst[i] = operation(input1[i], input2[i]);
 	}
 	/**
 	 * \brief Kernel when input2 is broadcasted into input1 but is not a single element tensor.
@@ -206,20 +288,20 @@ namespace
 	template<class Op, typename T>
 	__global__ void kernel_binary_logical_op_broadcasted(T* dst, const T *input1, const T *input2, unsigned int first_dim, unsigned int last_dim)
 	{
-		__shared__ T stored_input2[128];
-
-		Op operation;
-		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
-		{
-			int tmp_idx = j + threadIdx.x;
-			if (threadIdx.y == 0 and tmp_idx < last_dim)
-				stored_input2[threadIdx.x] = input2[tmp_idx];
-			__syncthreads();
-			if (tmp_idx < last_dim)
-				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-					dst[i * last_dim + tmp_idx] = operation(input1[i * last_dim + tmp_idx], stored_input2[threadIdx.x]);
-			__syncthreads();
-		}
+//		__shared__ T stored_input2[128];
+//
+//		Op operation;
+//		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
+//		{
+//			int tmp_idx = j + threadIdx.x;
+//			if (threadIdx.y == 0 and tmp_idx < last_dim)
+//				stored_input2[threadIdx.x] = input2[tmp_idx];
+//			__syncthreads();
+//			if (tmp_idx < last_dim)
+//				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
+//					dst[i * last_dim + tmp_idx] = operation(input1[i * last_dim + tmp_idx], stored_input2[threadIdx.x]);
+//			__syncthreads();
+//		}
 	}
 	/**
 	 * \brief Kernel when input2 has only one element that is broadcasted into input1.
@@ -227,10 +309,10 @@ namespace
 	template<class Op, typename T>
 	__global__ void kernel_binary_logical_op_single_element(T* dst, const T *input1, const T *input2, unsigned int elements)
 	{
-		Op operation;
-		T rhs = input2[0];
-		for (unsigned int i = blockIdx.y * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
-			dst[i] = operation(input1[i], rhs);
+//		Op operation;
+//		T rhs = input2[0];
+//		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+//			dst[i] = operation(input1[i], rhs);
 	}
 	template<class Op, typename T>
 	void helper_binary_logical_op(cudaStream_t stream, T* dst, const T *input1, const T* input2, cuda::BroadcastedDimensions dimensions)
@@ -290,16 +372,26 @@ namespace
 	template<class Op, typename T, typename U = T>
 	__global__ void kernel_binary_op_same_shape(T* dst, const T *input1, U alpha1, const T *input2, U alpha2, U beta, unsigned int elements)
 	{
+		numbers::Number<T> _alpha1(alpha1);
+		numbers::Number<T> _alpha2(alpha2);
+		numbers::Number<T> _beta(beta);
 		Op operation;
-		Store<T, U> store;
-		for (unsigned int i = blockIdx.y * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+//		Store<T, U> store;
+		for (unsigned int i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * blockDim.x * gridDim.x)
 		{
-			U lhs = alpha1 * input1[i];
-			U rhs = alpha2 * input2[i];
-			U tmp = operation(lhs, rhs);
-			if (beta != zero<U>())
-				tmp += beta * dst[i];
-			dst[i] = store(tmp);
+			numbers::Number<T> lhs(input1 + i, elements - i);
+			numbers::Number<T> rhs(input2 + i, elements - i);
+			numbers::Number<T> tmp = operation(_alpha1 * lhs, _alpha2 * rhs);
+			if (_beta != numbers::zero<T>())
+				tmp += _beta * numbers::Number<T>(dst + i, elements - i);
+			tmp.store(dst + i, elements - i);
+
+//			U lhs = alpha1 * input1[i];
+//			U rhs = alpha2 * input2[i];
+//			U tmp = operation(lhs, rhs);
+//			if (beta != zero<U>())
+//				tmp += beta * dst[i];
+//			dst[i] = store(tmp);
 		}
 	}
 	/**
@@ -309,29 +401,57 @@ namespace
 	__global__ void kernel_binary_op_broadcasted(T* dst, const T *input1, U alpha1, const T *input2, U alpha2, U beta, unsigned int first_dim,
 			unsigned int last_dim)
 	{
-//		extern __shared__ ComputeType stored_input2[];
-		__shared__ U stored_input2[128];
+		__shared__ numbers::Number<T> stored_input2[128];
 
+		numbers::Number<T> _alpha1(alpha1);
+		numbers::Number<T> _alpha2(alpha2);
+		numbers::Number<T> _beta(beta);
 		Op operation;
-		Store<T, U> store;
-		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
+		for (unsigned int j = numbers::length<T>() * blockIdx.x * blockDim.x; j < last_dim; j += numbers::length<T>() * blockDim.x * gridDim.x)
 		{
-			int tmp_idx = j + threadIdx.x;
+			int tmp_idx = j + numbers::length<T>() * threadIdx.x;
 			if (threadIdx.y == 0 and tmp_idx < last_dim)
-				stored_input2[threadIdx.x] = alpha2 * input2[tmp_idx];
+				stored_input2[threadIdx.x] = _alpha2 * numbers::Number<T>(input2 + tmp_idx, last_dim - tmp_idx);
 			__syncthreads();
 			if (tmp_idx < last_dim)
 				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
 				{
-					U lhs = alpha1 * input1[i * last_dim + tmp_idx];
-					U rhs = stored_input2[threadIdx.x];
-					U tmp = operation(lhs, rhs);
-					if (beta != zero<U>())
-						tmp += beta * dst[i * last_dim + tmp_idx];
-					dst[i * last_dim + tmp_idx] = store(tmp);
+					numbers::Number<T> lhs = _alpha1 * numbers::Number<T>(input1 + i * last_dim + tmp_idx, last_dim - tmp_idx);
+					numbers::Number<T> rhs = stored_input2[threadIdx.x];
+					numbers::Number<T> tmp = operation(lhs, rhs);
+					if (_beta != numbers::zero<T>())
+						tmp += _beta * numbers::Number<T>(dst + i * last_dim + tmp_idx, last_dim - tmp_idx);
+					tmp.store(dst + i * last_dim + tmp_idx, last_dim - tmp_idx);
 				}
 			__syncthreads();
 		}
+
+//		extern __shared__ ComputeType stored_input2[];
+//		__shared__ U stored_input2[128];
+//
+//		numbers::Number<T> _alpha1(alpha1);
+//		numbers::Number<T> _alpha2(alpha2);
+//		numbers::Number<T> _beta(beta);
+//		Op operation;
+//		Store<T, U> store;
+//		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
+//		{
+//			int tmp_idx = j + threadIdx.x;
+//			if (threadIdx.y == 0 and tmp_idx < last_dim)
+//				stored_input2[threadIdx.x] = alpha2 * input2[tmp_idx];
+//			__syncthreads();
+//			if (tmp_idx < last_dim)
+//				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
+//				{
+//					U lhs = alpha1 * input1[i * last_dim + tmp_idx];
+//					U rhs = stored_input2[threadIdx.x];
+//					U tmp = operation(lhs, rhs);
+//					if (beta != zero<U>())
+//						tmp += beta * dst[i * last_dim + tmp_idx];
+//					dst[i * last_dim + tmp_idx] = store(tmp);
+//				}
+//			__syncthreads();
+//		}
 	}
 	/**
 	 * \brief Kernel when input2 has only one element that is broadcasted into input1.
@@ -339,17 +459,31 @@ namespace
 	template<class Op, typename T, typename U = T>
 	__global__ void kernel_binary_op_single_element(T* dst, const T *input1, U alpha1, const T *input2, U alpha2, U beta, unsigned int elements)
 	{
+		numbers::Number<T> _alpha1(alpha1);
+		numbers::Number<T> _alpha2(alpha2);
+		numbers::Number<T> _beta(beta);
 		Op operation;
-		Store<T, U> store;
-		T rhs = alpha2 * input2[0];
-		for (unsigned int i = blockIdx.y * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+		numbers::Number<T> rhs = _alpha2 * numbers::Number<T>(input2[0]);
+		for (unsigned int i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * blockDim.x * gridDim.x)
 		{
-			U lhs = alpha1 * input1[i];
-			U tmp = operation(lhs, rhs);
-			if (beta != zero<U>())
-				tmp += beta * dst[i];
-			dst[i] = store(tmp);
+			numbers::Number<T> lhs = _alpha1 * numbers::Number<T>(input1 + i, elements - i);
+			numbers::Number<T> tmp = operation(lhs, rhs);
+			if (_beta != numbers::zero<T>())
+				tmp += _beta * numbers::Number<T>(dst + i, elements - i);
+			tmp.store(dst + i, elements - i);
 		}
+
+//		Op operation;
+//		Store<T, U> store;
+//		T rhs = alpha2 * input2[0];
+//		for (unsigned int i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * blockDim.x * gridDim.x)
+//		{
+//			U lhs = alpha1 * input1[i];
+//			U tmp = operation(lhs, rhs);
+//			if (beta != zero<U>())
+//				tmp += beta * dst[i];
+//			dst[i] = store(tmp);
+//		}
 	}
 
 	template<class Op, typename T, typename U = T>
@@ -469,14 +603,14 @@ namespace avocado
 			{
 				switch (cuda::getTensor(cDesc).dtype())
 				{
-//					case AVOCADO_DTYPE_FLOAT16:
-//						launcher_binary_op(stream, cuda::getPointer<half>(cMem), cuda::getPointer<half>(aMem), cuda::getAlphaValue(alpha1),
-//								cuda::getPointer<half>(bMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta), dimensions, operation);
-//						break;
-//					case AVOCADO_DTYPE_BFLOAT16:
-//						launcher_binary_op(stream, cuda::getPointer<bfloat16>(cMem), cuda::getPointer<bfloat16>(aMem), cuda::getAlphaValue(alpha1),
-//								cuda::getPointer<bfloat16>(bMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta), dimensions, operation);
-//						break;
+					case AVOCADO_DTYPE_FLOAT16:
+						launcher_binary_op(stream, cuda::getPointer<float16>(cMem), cuda::getPointer<float16>(aMem), cuda::getAlphaValue(alpha1),
+								cuda::getPointer<float16>(bMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta), dimensions, operation);
+						break;
+					case AVOCADO_DTYPE_BFLOAT16:
+						launcher_binary_op(stream, cuda::getPointer<bfloat16>(cMem), cuda::getPointer<bfloat16>(aMem), cuda::getAlphaValue(alpha1),
+								cuda::getPointer<bfloat16>(bMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta), dimensions, operation);
+						break;
 					case AVOCADO_DTYPE_FLOAT32:
 						launcher_binary_op(stream, cuda::getPointer<float>(cMem), cuda::getPointer<float>(aMem), cuda::getAlphaValue(alpha1),
 								cuda::getPointer<float>(bMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta), dimensions, operation);

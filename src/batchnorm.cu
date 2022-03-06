@@ -45,9 +45,6 @@ namespace
 	__global__ void kernel_batchnorm_forward(const T *mean, const T *variance, const T *scale, const T *shift, const T *input, T *output, T alpha, T beta,
 			unsigned int first_dim, unsigned int last_dim, avActivationType_t activation, T epsilon)
 	{
-		assert(gridDim.x * blockDim.x <= last_dim);
-		assert(blockDim.x == 256 && blockDim.y == 1);
-
 		for (unsigned int j = blockIdx.x * blockDim.x + threadIdx.x; j < last_dim; j += gridDim.x * blockDim.x)
 		{
 			T _scale = scale[j] / sqrt(variance[j] + epsilon);

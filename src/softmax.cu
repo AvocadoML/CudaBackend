@@ -79,23 +79,26 @@ namespace
 	 * In this version single threadblock calculates softmax over single line of input data that fits into shared memory.
 	 */
 	template<unsigned int elements, typename T, typename U = T>
-	__launch_bounds__(256, 8)
+//	__launch_bounds__(256, 8)
 	__global__ void kernel_softmax_forward_medium_last_dim(const T *input, T *output, U alpha, U beta, unsigned int first_dim, unsigned int last_dim)
 	{
 		assert(blockDim.x == 256 && blockDim.y == 1);
 		assert(last_dim <= elements);
 
-		__shared__ T input_storage[elements];
-		__shared__ T reduction_storage[256];
+		numbers::Number<T> _alpha(alpha);
+		numbers::Number<T> _beta(beta);
+
+		__shared__ numbers::Number<T> input_storage[elements];
+		__shared__ numbers::Number<T> reduction_storage[256];
 
 		for (unsigned int i = blockIdx.x; i < first_dim; i += gridDim.x)
 		{
 			/* First, find the maximum value of the input */
-			T max_element = input[i * last_dim];
-			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+			numbers::Number<T> max_element(input + i * last_dim, last_dim);
+			for (unsigned int j = numbers::length<T>() * threadIdx.x; j < last_dim; j += numbers::length<T>() * blockDim.x)
 			{
-				input_storage[j] = input[i * last_dim + j];
-				max_element = max(max_element, input_storage[j]);
+				input_storage[j] = numbers::Number<T>(input + i * last_dim + j, last_dim - j);
+				max_element = numbers::max(max_element, input_storage[j]);
 			}
 			reduction_storage[threadIdx.x] = max_element;
 			__syncthreads();
@@ -104,16 +107,16 @@ namespace
 			for (unsigned int j = blockDim.x / 2; j >= 1; j /= 2)
 			{
 				if (threadIdx.x < j)
-					reduction_storage[threadIdx.x] = max(reduction_storage[threadIdx.x], reduction_storage[threadIdx.x + j]);
+					reduction_storage[threadIdx.x] = numbers::max(reduction_storage[threadIdx.x], reduction_storage[threadIdx.x + j]);
 				__syncthreads();
 			}
 			max_element = reduction_storage[0];
 
 			/* Second, calculate sum of exponents of input data, shifted by their maximum element */
-			T sum = zero<T>();
+			numbers::Number<T> sum = numbers::zero<T>();
 			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
 			{
-				input_storage[j] = exp(input_storage[j] - max_element);
+				input_storage[j] = numbers::exp(input_storage[j] - max_element);
 				sum += input_storage[j];
 			}
 			reduction_storage[threadIdx.x] = sum;
@@ -128,46 +131,116 @@ namespace
 			}
 			sum = reduction_storage[0];
 
-			if (sum == zero<T>())
+			if (sum == numbers::zero<T>())
 			{
-				sum = one<T>() / last_dim;
-				for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+				sum = numbers::one<T>() / numbers::Number<T>(static_cast<float>(last_dim));
+				for (unsigned int j = numbers::length<T>() * threadIdx.x; j < last_dim; j += numbers::length<T>() * blockDim.x)
 				{
-					T tmp = alpha * sum;
-					if (beta != zero<U>())
-						tmp += beta * output[i * last_dim + j];
-					output[i * last_dim + j] = tmp;
+					numbers::Number<T> tmp = _alpha * sum;
+					if (_beta != numbers::zero<T>())
+						tmp += _beta * numbers::Number<T>(output + i * last_dim + j, last_dim - j);
+					tmp.store(output + i * last_dim + j, last_dim - j);
 				}
 			}
 			else
 			{
-				sum = one<T>() / sum;
-				for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+				sum = numbers::one<T>() / sum;
+				for (unsigned int j = numbers::length<T>() * threadIdx.x; j < last_dim; j += numbers::length<T>() * blockDim.x)
 				{
-					T tmp = alpha * input_storage[j] * sum;
-					if (beta != zero<U>())
-						tmp += beta * output[i * last_dim + j];
-					output[i * last_dim + j] = tmp;
+					numbers::Number<T> tmp = _alpha * input_storage[j] * sum;
+					if (_beta != numbers::zero<T>())
+						tmp += _beta * numbers::Number<T>(output + i * last_dim + j, last_dim - j);
+					tmp.store(output + i * last_dim + j, last_dim - j);
 				}
 			}
 		}
+
+//		__shared__ T input_storage[elements];
+//		__shared__ T reduction_storage[256];
+//
+//		for (unsigned int i = blockIdx.x; i < first_dim; i += gridDim.x)
+//		{
+//			/* First, find the maximum value of the input */
+//			T max_element = input[i * last_dim];
+//			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+//			{
+//				input_storage[j] = input[i * last_dim + j];
+//				max_element = max(max_element, input_storage[j]);
+//			}
+//			reduction_storage[threadIdx.x] = max_element;
+//			__syncthreads();
+//
+//			/* Now reduce the storage array into single element */
+//			for (unsigned int j = blockDim.x / 2; j >= 1; j /= 2)
+//			{
+//				if (threadIdx.x < j)
+//					reduction_storage[threadIdx.x] = max(reduction_storage[threadIdx.x], reduction_storage[threadIdx.x + j]);
+//				__syncthreads();
+//			}
+//			max_element = reduction_storage[0];
+//
+//			/* Second, calculate sum of exponents of input data, shifted by their maximum element */
+//			T sum = zero<T>();
+//			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+//			{
+//				input_storage[j] = exp(input_storage[j] - max_element);
+//				sum += input_storage[j];
+//			}
+//			reduction_storage[threadIdx.x] = sum;
+//			__syncthreads();
+//
+//			/* Now sum the storage array into single element */
+//			for (unsigned int j = blockDim.x / 2; j >= 1; j /= 2)
+//			{
+//				if (threadIdx.x < j)
+//					reduction_storage[threadIdx.x] += reduction_storage[threadIdx.x + j];
+//				__syncthreads();
+//			}
+//			sum = reduction_storage[0];
+//
+//			if (sum == zero<T>())
+//			{
+//				sum = one<T>() / last_dim;
+//				for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+//				{
+//					T tmp = alpha * sum;
+//					if (beta != zero<U>())
+//						tmp += beta * output[i * last_dim + j];
+//					output[i * last_dim + j] = tmp;
+//				}
+//			}
+//			else
+//			{
+//				sum = one<T>() / sum;
+//				for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+//				{
+//					T tmp = alpha * input_storage[j] * sum;
+//					if (beta != zero<U>())
+//						tmp += beta * output[i * last_dim + j];
+//					output[i * last_dim + j] = tmp;
+//				}
+//			}
+//		}
 	}
 	/**
 	 * In this version single threadblock calculates softmax over single line of input tensor.
 	 */
 	template<typename T, typename U = T>
-	__launch_bounds__(256, 8)
+//	__launch_bounds__(256, 8)
 	__global__ void kernel_softmax_forward_large_last_dim(const T *input, T *output, U alpha, U beta, unsigned int first_dim, unsigned int last_dim)
 	{
 		assert(blockDim.x == 256 && blockDim.y == 1);
-		__shared__ T storage[256];
+
+		numbers::Number<T> _alpha(alpha);
+		numbers::Number<T> _beta(beta);
+		__shared__ numbers::Number<T> storage[256];
 
 		for (unsigned int i = blockIdx.x; i < first_dim; i += gridDim.x)
 		{
 			/* First, find the maximum value of the input */
-			T max_element = input[i * last_dim];
-			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
-				max_element = max(max_element, input[i * last_dim + j]);
+			numbers::Number<T> max_element(input + i * last_dim, last_dim);
+			for (unsigned int j = numbers::length<T>() * threadIdx.x; j < last_dim; j += numbers::length<T>() * blockDim.x)
+				max_element = max(max_element, numbers::Number<T>(input + i * last_dim + j, last_dim - j));
 			storage[threadIdx.x] = max_element;
 			__syncthreads();
 
@@ -181,9 +254,9 @@ namespace
 			max_element = storage[0];
 
 			/* Second, calculate sum of exponents of input data, shifted by their maximum element */
-			T sum = zero<T>();
+			numbers::Number<T> sum = numbers::zero<T>();
 			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
-				sum += exp(input[i * last_dim + j] - max_element);
+				sum += numbers::exp(numbers::Number<T>(input + i * last_dim + j, last_dim - j) - max_element);
 			storage[threadIdx.x] = sum;
 			__syncthreads();
 
@@ -196,29 +269,89 @@ namespace
 			}
 			sum = storage[0];
 
-			if (sum == zero<T>())
+			if (sum == numbers::zero<T>())
 			{
-				sum = one<T>() / last_dim;
-				for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+				sum = numbers::one<T>() / numbers::Number<T>(static_cast<float>(last_dim));
+				for (unsigned int j = numbers::length<T>() * threadIdx.x; j < last_dim; j += numbers::length<T>() * blockDim.x)
 				{
-					T tmp = alpha * sum;
-					if (beta != zero<U>())
-						tmp += beta * output[i * last_dim + j];
-					output[i * last_dim + j] = tmp;
+					numbers::Number<T> tmp = _alpha * sum;
+					if (_beta != numbers::zero<T>())
+						tmp += _beta * numbers::Number<T>(output + i * last_dim + j, last_dim - j);
+					tmp.store(output + i * last_dim + j, last_dim - j);
 				}
 			}
 			else
 			{
-				sum = one<T>() / sum;
-				for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+				sum = numbers::one<T>() / sum;
+				for (unsigned int j = numbers::length<T>() * threadIdx.x; j < last_dim; j += numbers::length<T>() * blockDim.x)
 				{
-					T tmp = alpha * exp(input[i * last_dim + j] - max_element) * sum;
-					if (beta != zero<U>())
-						tmp += beta * output[i * last_dim + j];
-					output[i * last_dim + j] = tmp;
+					numbers::Number<T> tmp = _alpha * numbers::exp(numbers::Number<T>(input + i * last_dim + j, last_dim - j) - max_element) * sum;
+					if (_beta != numbers::zero<T>())
+						tmp += _beta * numbers::Number<T>(output + i * last_dim + j, last_dim - j);
+					tmp.store(output + i * last_dim + j, last_dim - j);
 				}
 			}
 		}
+
+//		__shared__ T storage[256];
+//
+//		for (unsigned int i = blockIdx.x; i < first_dim; i += gridDim.x)
+//		{
+//			/* First, find the maximum value of the input */
+//			T max_element = input[i * last_dim];
+//			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+//				max_element = max(max_element, input[i * last_dim + j]);
+//			storage[threadIdx.x] = max_element;
+//			__syncthreads();
+//
+//			/* Now reduce the storage array into single element */
+//			for (unsigned int j = blockDim.x / 2; j >= 1; j /= 2)
+//			{
+//				if (threadIdx.x < j)
+//					storage[threadIdx.x] = max(storage[threadIdx.x], storage[threadIdx.x + j]);
+//				__syncthreads();
+//			}
+//			max_element = storage[0];
+//
+//			/* Second, calculate sum of exponents of input data, shifted by their maximum element */
+//			T sum = zero<T>();
+//			for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+//				sum += exp(input[i * last_dim + j] - max_element);
+//			storage[threadIdx.x] = sum;
+//			__syncthreads();
+//
+//			/* Now sum the storage array into single element */
+//			for (unsigned int j = blockDim.x / 2; j >= 1; j /= 2)
+//			{
+//				if (threadIdx.x < j)
+//					storage[threadIdx.x] += storage[threadIdx.x + j];
+//				__syncthreads();
+//			}
+//			sum = storage[0];
+//
+//			if (sum == zero<T>())
+//			{
+//				sum = one<T>() / last_dim;
+//				for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+//				{
+//					T tmp = alpha * sum;
+//					if (beta != zero<U>())
+//						tmp += beta * output[i * last_dim + j];
+//					output[i * last_dim + j] = tmp;
+//				}
+//			}
+//			else
+//			{
+//				sum = one<T>() / sum;
+//				for (unsigned int j = threadIdx.x; j < last_dim; j += blockDim.x)
+//				{
+//					T tmp = alpha * exp(input[i * last_dim + j] - max_element) * sum;
+//					if (beta != zero<U>())
+//						tmp += beta * output[i * last_dim + j];
+//					output[i * last_dim + j] = tmp;
+//				}
+//			}
+//		}
 	}
 
 	template<typename T, typename U = T>
@@ -297,14 +430,14 @@ namespace avocado
 
 			switch (cuda::getTensor(xDesc).dtype())
 			{
-//				case AVOCADO_DTYPE_FLOAT16:
-//					helper_softmax_forward(stream, cuda::getPointer<half>(xMem), cuda::getPointer<half>(yMem), cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), first_dim,
-//							last_dim);
-//					break;
-//				case AVOCADO_DTYPE_BFLOAT16:
-//					helper_softmax_forward(stream, cuda::getPointer<bfloat16>(xMem), cuda::getPointer<bfloat16>(yMem), cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), first_dim,
-//							last_dim);
-//					break;
+				case AVOCADO_DTYPE_FLOAT16:
+					helper_softmax_forward(stream, cuda::getPointer<half>(xMem), cuda::getPointer<half>(yMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), first_dim, last_dim);
+					break;
+				case AVOCADO_DTYPE_BFLOAT16:
+					helper_softmax_forward(stream, cuda::getPointer<bfloat16>(xMem), cuda::getPointer<bfloat16>(yMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), first_dim, last_dim);
+					break;
 				case AVOCADO_DTYPE_FLOAT32:
 					helper_softmax_forward(stream, cuda::getPointer<float>(xMem), cuda::getPointer<float>(yMem), cuda::getAlphaValue(alpha),
 							cuda::getBetaValue(beta), first_dim, last_dim);

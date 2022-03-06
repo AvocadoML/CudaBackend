@@ -34,10 +34,7 @@ namespace
 
 			tmp = _alpha * activation.forward(tmp);
 			if (_beta != numbers::zero<T>())
-			{
-				numbers::Number<T> dst(output + i, elements_left);
-				tmp = tmp + _beta * dst;
-			}
+				tmp += _beta * numbers::Number<T>(output + i, elements_left);
 			tmp.store(output + i, elements_left);
 
 //			Number<T> tmp = alpha * activation.forward();
@@ -90,17 +87,16 @@ namespace
 	template<class Activation, typename T, typename U = T>
 	__global__ void kernel_act_backward(T *gradient_prev, const T *gradient_next, const T *output, U alpha, U beta, unsigned int elements)
 	{
+		numbers::Number<T> _alpha(alpha);
+		numbers::Number<T> _beta(beta);
 		Activation activation;
 		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
 			numbers::Number<T> grad(gradient_next + i, elements - i);
 			numbers::Number<T> out(output + i, elements - i);
-			numbers::Number<T> tmp = alpha * activation.backward(grad, out);
-			if (beta != zero<U>())
-			{
-				numbers::Number<T> dst(gradient_prev + i, elements - i);
-				tmp += beta * dst;
-			}
+			numbers::Number<T> tmp = _alpha * activation.backward(grad, out);
+			if (_beta != numbers::zero<T>())
+				tmp += _beta * numbers::Number<T>(gradient_prev + i, elements - i);
 			tmp.store(gradient_prev + i, elements - i);
 
 //			T tmp = alpha * activation.backward(gradient_next[i], output[i]);

@@ -29,15 +29,15 @@ namespace avocado
 			EXPECT_LT(data.getDifferenceForward(&alpha, &beta), 1.0e-2);
 			EXPECT_LT(data.getDifferenceBackward(&alpha, &beta), 1.0e-2);
 		}
-//		TEST_P(TestActivation, bfloat16)
-//		{
-//			if (not supportsType(AVOCADO_DTYPE_BFLOAT16))
-//				GTEST_SKIP();
-//			ActivationTester data(GetParam(), { 23, 45 }, AVOCADO_DTYPE_BFLOAT16);
-//			float alpha = 1.1f, beta = 0.1f;
-//			EXPECT_LT(data.getDifferenceForward(&alpha, &beta), 1.0e-2);
-//			EXPECT_LT(data.getDifferenceBackward(&alpha, &beta), 1.0e-2);
-//		}
+		TEST_P(TestActivation, bfloat16)
+		{
+			if (not supportsType(AVOCADO_DTYPE_BFLOAT16))
+				GTEST_SKIP();
+			ActivationTester data(GetParam(), { 23, 45 }, AVOCADO_DTYPE_BFLOAT16);
+			float alpha = 1.1f, beta = 0.1f;
+			EXPECT_LT(data.getDifferenceForward(&alpha, &beta), 1.0e-2);
+			EXPECT_LT(data.getDifferenceBackward(&alpha, &beta), 1.0e-2);
+		}
 		TEST_P(TestActivation, float32)
 		{
 			if (not supportsType(AVOCADO_DTYPE_FLOAT32))

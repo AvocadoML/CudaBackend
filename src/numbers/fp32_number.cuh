@@ -16,7 +16,7 @@ namespace numbers
 	class Number<float>
 	{
 	private:
-		float m_data = 0.0f;
+		float m_data;
 	public:
 		__device__ Number() = default;
 		__device__ Number(float x) :
@@ -72,6 +72,23 @@ namespace numbers
 	DEVICE_INLINE Number<float> epsilon()
 	{
 		return Number<float>(1.1920928955078125e-7f);
+	}
+
+	DEVICE_INLINE Number<float> operator+(const Number<float> &lhs, const Number<float> &rhs)
+	{
+		return Number<float>(static_cast<float>(lhs) + static_cast<float>(rhs));
+	}
+	DEVICE_INLINE Number<float> operator-(const Number<float> &lhs, const Number<float> &rhs)
+	{
+		return Number<float>(static_cast<float>(lhs) - static_cast<float>(rhs));
+	}
+	DEVICE_INLINE Number<float> operator*(const Number<float> &lhs, const Number<float> &rhs)
+	{
+		return Number<float>(static_cast<float>(lhs) * static_cast<float>(rhs));
+	}
+	DEVICE_INLINE Number<float> operator/(const Number<float> &lhs, const Number<float> &rhs)
+	{
+		return Number<float>(static_cast<float>(lhs) / static_cast<float>(rhs));
 	}
 
 	DEVICE_INLINE Number<float> sgn(Number<float> x) noexcept
