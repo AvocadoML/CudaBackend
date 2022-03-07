@@ -29,11 +29,19 @@ namespace
 		}
 	};
 	template<>
-	struct limits<half>
+	struct limits<float16>
 	{
 		__device__ float max() const noexcept
 		{
 			return 65504;
+		}
+	};
+	template<>
+	struct limits<bfloat16>
+	{
+		__device__ float max() const noexcept
+		{
+			return 3.4028e+38f;
 		}
 	};
 	template<>
@@ -56,10 +64,10 @@ namespace
 	template<typename T>
 	class ReduceAdd
 	{
-		T acc = zero<T>();
+		numbers::Number<T> acc = numbers::zero<T>();
 	public:
 		__device__ ReduceAdd() = default;
-		__device__ void accumulate(T x) noexcept
+		__device__ void accumulate(numbers::Number<T> x) noexcept
 		{
 			acc += x;
 		}
@@ -67,12 +75,15 @@ namespace
 		{
 			acc += other.acc;
 		}
-		__device__ ReduceAdd& operator=(T value) noexcept
+		__device__ void final_action() noexcept
+		{
+		}
+		__device__ ReduceAdd& operator=(numbers::Number<T> value) noexcept
 		{
 			acc = value;
 			return *this;
 		}
-		__device__ operator T() const noexcept
+		__device__ operator numbers::Number<T>() const noexcept
 		{
 			return acc;
 		}
@@ -80,10 +91,10 @@ namespace
 	template<typename T>
 	class ReduceMul
 	{
-		T acc = one<T>();
+		numbers::Number<T> acc = numbers::one<T>();
 	public:
 		__device__ ReduceMul() = default;
-		__device__ void accumulate(T x) noexcept
+		__device__ void accumulate(numbers::Number<T> x) noexcept
 		{
 			acc *= x;
 		}
@@ -91,12 +102,15 @@ namespace
 		{
 			acc *= other.acc;
 		}
-		__device__ ReduceMul& operator=(T value) noexcept
+		__device__ void final_action() noexcept
+		{
+		}
+		__device__ ReduceMul& operator=(numbers::Number<T> value) noexcept
 		{
 			acc = value;
 			return *this;
 		}
-		__device__ operator T() const noexcept
+		__device__ operator numbers::Number<T>() const noexcept
 		{
 			return acc;
 		}
@@ -104,23 +118,26 @@ namespace
 	template<typename T>
 	class ReduceMin
 	{
-		T acc = limits<T>().max();
+		numbers::Number<T> acc = numbers::Number<T>(limits<T>().max());
 	public:
 		__device__ ReduceMin() = default;
-		__device__ void accumulate(T x) noexcept
+		__device__ void accumulate(numbers::Number<T> x) noexcept
 		{
-			this->acc = min(this->acc, x);
+			this->acc = numbers::min(this->acc, x);
 		}
 		__device__ void combine_partial(ReduceMin other) noexcept
 		{
-			this->acc = min(this->acc, other.acc);
+			this->acc = numbers::min(this->acc, other.acc);
 		}
-		__device__ ReduceMin& operator=(T value) noexcept
+		__device__ void final_action() noexcept
+		{
+		}
+		__device__ ReduceMin& operator=(numbers::Number<T> value) noexcept
 		{
 			acc = value;
 			return *this;
 		}
-		__device__ operator T() const noexcept
+		__device__ operator numbers::Number<T>() const noexcept
 		{
 			return acc;
 		}
@@ -128,23 +145,26 @@ namespace
 	template<typename T>
 	class ReduceMax
 	{
-		T acc = -limits<T>().max();
+		numbers::Number<T> acc = numbers::Number<T>(-limits<T>().max());
 	public:
 		__device__ ReduceMax() = default;
-		__device__ void accumulate(T x) noexcept
+		__device__ void accumulate(numbers::Number<T> x) noexcept
 		{
-			acc = max(acc, x);
+			acc = numbers::max(acc, x);
 		}
 		__device__ void combine_partial(ReduceMax other) noexcept
 		{
-			acc = max(acc, other.acc);
+			acc = numbers::max(acc, other.acc);
 		}
-		__device__ ReduceMax& operator=(T value) noexcept
+		__device__ void final_action() noexcept
+		{
+		}
+		__device__ ReduceMax& operator=(numbers::Number<T> value) noexcept
 		{
 			acc = value;
 			return *this;
 		}
-		__device__ operator T() const noexcept
+		__device__ operator numbers::Number<T>() const noexcept
 		{
 			return acc;
 		}
@@ -152,23 +172,26 @@ namespace
 	template<typename T>
 	class ReduceAMax
 	{
-		T acc = zero<T>();
+		numbers::Number<T> acc = numbers::zero<T>();
 	public:
 		__device__ ReduceAMax() = default;
-		__device__ void accumulate(T x) noexcept
+		__device__ void accumulate(numbers::Number<T> x) noexcept
 		{
-			acc = max(acc, abs(x));
+			acc = numbers::max(acc, numbers::abs(x));
 		}
 		__device__ void combine_partial(ReduceAMax other) noexcept
 		{
-			acc = max(acc, other.acc);
+			acc = numbers::max(acc, other.acc);
 		}
-		__device__ ReduceAMax& operator=(T value) noexcept
+		__device__ void final_action() noexcept
+		{
+		}
+		__device__ ReduceAMax& operator=(numbers::Number<T> value) noexcept
 		{
 			acc = value;
 			return *this;
 		}
-		__device__ operator T() const noexcept
+		__device__ operator numbers::Number<T>() const noexcept
 		{
 			return acc;
 		}
@@ -176,23 +199,26 @@ namespace
 	template<typename T>
 	class ReduceNorm1
 	{
-		T acc = zero<T>();
+		numbers::Number<T> acc = numbers::zero<T>();
 	public:
 		__device__ ReduceNorm1() = default;
-		__device__ void accumulate(T x) noexcept
+		__device__ void accumulate(numbers::Number<T> x) noexcept
 		{
-			acc += abs(x);
+			acc += numbers::abs(x);
 		}
 		__device__ void combine_partial(ReduceNorm1 other) noexcept
 		{
 			acc += other.acc;
 		}
-		__device__ ReduceNorm1& operator=(T value) noexcept
+		__device__ void final_action() noexcept
+		{
+		}
+		__device__ ReduceNorm1& operator=(numbers::Number<T> value) noexcept
 		{
 			acc = value;
 			return *this;
 		}
-		__device__ operator T() const noexcept
+		__device__ operator numbers::Number<T>() const noexcept
 		{
 			return acc;
 		}
@@ -200,23 +226,27 @@ namespace
 	template<typename T>
 	class ReduceNorm2
 	{
-		T acc = zero<T>();
+		numbers::Number<T> acc = numbers::zero<T>();
 	public:
 		__device__ ReduceNorm2() = default;
-		__device__ void accumulate(T x) noexcept
+		__device__ void accumulate(numbers::Number<T> x) noexcept
 		{
-			acc += square(x);
+			acc += numbers::square(x);
 		}
 		__device__ void combine_partial(ReduceNorm2 other) noexcept
 		{
 			acc += other.acc;
 		}
-		__device__ ReduceNorm2& operator=(T value) noexcept
+		__device__ void final_action() noexcept
+		{
+			acc = numbers::sqrt(acc);
+		}
+		__device__ ReduceNorm2& operator=(numbers::Number<T> value) noexcept
 		{
 			acc = value;
 			return *this;
 		}
-		__device__ operator T() const noexcept
+		__device__ operator numbers::Number<T>() const noexcept
 		{
 			return acc;
 		}
@@ -224,31 +254,34 @@ namespace
 	template<typename T>
 	class ReduceMulNoZeros
 	{
-		T acc = one<T>();
+		numbers::Number<T> acc = numbers::one<T>();
 	public:
 		__device__ ReduceMulNoZeros() = default;
-		__device__ void accumulate(T x) noexcept
+		__device__ void accumulate(numbers::Number<T> x) noexcept
 		{
-			if (x != zero<T>())
+			if (x != numbers::zero<T>())
 				acc *= x;
 		}
 		__device__ void combine_partial(ReduceMulNoZeros other) noexcept
 		{
 			acc *= other.acc;
 		}
-		__device__ ReduceMulNoZeros& operator=(T value) noexcept
+		__device__ void final_action() noexcept
+		{
+		}
+		__device__ ReduceMulNoZeros& operator=(numbers::Number<T> value) noexcept
 		{
 			acc = value;
 			return *this;
 		}
-		__device__ operator T() const noexcept
+		__device__ operator numbers::Number<T>() const noexcept
 		{
 			return acc;
 		}
 	};
 
-	template<class Acc>
-	__device__ void block_reduce_linear(Acc *ptr) noexcept
+	template<class Accumulator>
+	__device__ void block_reduce_linear(Accumulator *ptr) noexcept
 	{
 		assert(ispow2(blockDim.x));
 		for (unsigned int i = blockDim.x / 2; i >= 1; i /= 2) // sum results stored in temporary array
@@ -258,40 +291,43 @@ namespace
 			__syncthreads();
 		}
 	}
-	template<class Acc, typename T>
+	template<class Accumulator, typename T>
 	__global__ void kernel_reduce_linear_1(T *dst, const T* src, unsigned int elements)
 	{
-		__shared__ Acc storage[1024];
+		__shared__ Accumulator storage[1024];
 
-		Acc acc;
-		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
+		Accumulator acc;
+		for (unsigned int i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * blockDim.x * gridDim.x)
 			acc.accumulate(src[i]);
-
 		storage[threadIdx.x] = acc;
 
 		__syncthreads();
 		block_reduce_linear(storage);
 		if (threadIdx.x == 0)
-			dst[blockIdx.x] = storage[0];
+			reinterpret_cast<Accumulator*>(dst)[blockIdx.x] = storage[0];
 	}
-	template<class Acc, typename T, typename U = T>
+	template<class Accumulator, typename T, typename U = T>
 	__global__ void kernel_reduce_linear_2(T *dst, const T* src, U alpha, U beta)
 	{
-		__shared__ Acc storage[1024];
-		storage[threadIdx.x] = src[threadIdx.x];
+		__shared__ Accumulator storage[1024];
+		storage[threadIdx.x] = reinterpret_cast<const Accumulator*>(src)[threadIdx.x];
 		__syncthreads();
 		block_reduce_linear(storage);
+
 		if (threadIdx.x == 0)
 		{
-			T tmp = alpha * static_cast<T>(storage[0]);
-			if (beta != zero<U>())
-				tmp += beta * dst[0];
-			dst[0] = tmp;
+			numbers::Number<T> _alpha(alpha);
+			numbers::Number<T> _beta(beta);
+			storage[0].final_action();
+			numbers::Number<T> tmp = _alpha * (numbers::Number<T>) (storage[0]);
+			if (_beta != numbers::zero<T>())
+				tmp += _beta * numbers::Number<T>(dst, 1);
+			tmp.store(dst, 1);
 		}
 	}
 
-	template<class Acc>
-	__device__ void block_reduce_broadcasted(Acc *ptr) noexcept
+	template<class Accumulator>
+	__device__ void block_reduce_broadcasted(Accumulator *ptr) noexcept
 	{
 		for (int i = 16; i >= 1; i /= 2) // sum results stored in temporary array
 		{
@@ -300,15 +336,15 @@ namespace
 			__syncthreads();
 		}
 	}
-	template<class Acc, typename T>
+	template<class Accumulator, typename T>
 	__global__ void kernel_reduce_broadcasted_1(T *dst, const T* src, unsigned int first_dim, unsigned int last_dim)
 	{
-		__shared__ Acc storage[32 * 32];
+		__shared__ Accumulator storage[32 * 32];
 		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
 		{
 			unsigned int idx = j + threadIdx.x;
 
-			Acc acc;
+			Accumulator acc;
 			if (idx < last_dim)
 			{
 				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
@@ -319,22 +355,25 @@ namespace
 			__syncthreads();
 			block_reduce_broadcasted(storage);
 			if (threadIdx.y == 0 and idx < last_dim)
-				dst[blockIdx.y * last_dim + idx] = storage[0 * 32 + threadIdx.x];
+			{
+				numbers::Number<T> tmp = (numbers::Number<T>) (storage[0 * 32 + threadIdx.x]);
+				tmp.store(dst + blockIdx.y * last_dim + idx, last_dim - idx);
+			}
 		}
 	}
-	template<class Acc, typename T, typename U = T>
+	template<class Accumulator, typename T, typename U = T>
 	__global__ void kernel_reduce_broadcasted_2(T *dst, const T* src, U alpha, U beta, unsigned int first_dim, unsigned int last_dim)
 	{
-		__shared__ Acc storage[32 * 32];
+		__shared__ Accumulator storage[32 * 32];
 		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
 		{
 			unsigned int idx = j + threadIdx.x;
 
-			Acc acc;
+			Accumulator acc;
 			if (idx < last_dim)
 			{
 				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-					acc.combine_partial(reinterpret_cast<const Acc*>(src)[i * last_dim + idx]);
+					acc.combine_partial(reinterpret_cast<const Accumulator*>(src)[i * last_dim + idx]);
 			}
 			storage[threadIdx.y * 32 + threadIdx.x] = acc;
 
@@ -342,10 +381,13 @@ namespace
 			block_reduce_broadcasted(storage);
 			if (threadIdx.y == 0 and idx < last_dim)
 			{
-				T tmp = alpha * static_cast<T>(storage[0 * 32 + threadIdx.x]);
-				if (beta != zero<U>())
-					tmp += beta * dst[blockIdx.y * last_dim + idx];
-				dst[blockIdx.y * last_dim + idx] = tmp;
+				numbers::Number<T> _alpha(alpha);
+				numbers::Number<T> _beta(beta);
+				storage[0 * 32 + threadIdx.x].final_action();
+				numbers::Number<T> tmp = _alpha * (numbers::Number<T>) (storage[0 * 32 + threadIdx.x]);
+				if (_beta != numbers::zero<T>())
+					tmp += _beta * numbers::Number<T>(dst + blockIdx.y * last_dim + idx, last_dim - idx);
+				tmp.store(dst + blockIdx.y * last_dim + idx, last_dim - idx);
 			}
 		}
 	}
@@ -353,6 +395,9 @@ namespace
 	template<class Op, typename T, typename U = T>
 	void helper_reduce_tensor(cudaStream_t stream, T* output, const T *input, const U alpha, const U beta, cuda::BroadcastedDimensions dimensions, T* workspace)
 	{
+		assert(output != nullptr);
+		assert(input != nullptr);
+		assert(workspace != nullptr);
 		if (dimensions.last == 1) // output is a single element
 		{
 			const int partial_results = 64; // must be power of 2
@@ -423,9 +468,12 @@ namespace avocado
 
 			switch (cuda::getTensor(aDesc).dtype())
 			{
-//				case AVOCADO_DTYPE_FLOAT16:
-//					return launcher_reduce_tensor(stream, cuda::getPointer<half>(cMem), cuda::getPointer<half>(aMem), cuda::getAlphaValue(alpha), getBetaValue(beta),
-//							dimensions, operation, cuda::getContext(context).getWorkspace().data<half>());
+				case AVOCADO_DTYPE_FLOAT16:
+					return launcher_reduce_tensor(stream, cuda::getPointer<float16>(cMem), cuda::getPointer<float16>(aMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), dimensions, operation, cuda::getContext(context).getWorkspace().data<float16>());
+				case AVOCADO_DTYPE_BFLOAT16:
+					return launcher_reduce_tensor(stream, cuda::getPointer<bfloat16>(cMem), cuda::getPointer<bfloat16>(aMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), dimensions, operation, cuda::getContext(context).getWorkspace().data<bfloat16>());
 				case AVOCADO_DTYPE_FLOAT32:
 					return launcher_reduce_tensor(stream, cuda::getPointer<float>(cMem), cuda::getPointer<float>(aMem), cuda::getAlphaValue(alpha),
 							cuda::getBetaValue(beta), dimensions, operation, cuda::getContext(context).getWorkspace().data<float>());
