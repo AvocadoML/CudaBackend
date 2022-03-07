@@ -21,7 +21,7 @@ namespace
 	using namespace avocado::backend;
 
 	template<typename T>
-	__device__ T round_small_to_zero(T x) noexcept
+	__device__ T round_small_to_zero(T x)
 	{
 		if (x > -eps<T>() and x < eps<T>())
 			return zero<T>();
@@ -30,42 +30,44 @@ namespace
 	}
 
 	template<typename T>
-	__global__ void kernel_learn_sgd(T *weight, const T *update, T *momentum, unsigned int elements, T learning_rate, T beta, bool use_momentum,
-			bool use_nesterov)
+	__global__ void kernel_learn_sgd(T *weight, const T *update, T *momentum, avSize_t elements, T learning_rate, T beta1, bool use_momentum, bool use_nesterov,
+			T alpha, T beta)
 	{
-		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
+		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
+			T tmp;
 			if (use_momentum)
 			{
-				momentum[i] = beta * momentum[i] - learning_rate * update[i];
+				momentum[i] = beta1 * momentum[i] - learning_rate * update[i];
 				if (use_nesterov)
-					weight[i] += beta * momentum[i] - learning_rate * update[i];
+					tmp = beta1 * momentum[i] - learning_rate * update[i];
 				else
-					weight[i] += momentum[i];
+					tmp = momentum[i];
 			}
 			else
-				weight[i] -= learning_rate * update[i];
-			weight[i] = round_small_to_zero(weight[i]);
+				tmp = -learning_rate * update[i];
+			weight[i] = round_small_to_zero(alpha * tmp + beta * weight[i]);
 		}
 	}
 	template<typename T>
-	__global__ void kernel_learn_adam(T *weight, const T *update, T *momentum, T *variance, unsigned int elements, T learning_rate, T beta1, T beta2)
+	__global__ void kernel_learn_adam(T *weight, const T *update, T *momentum, T *variance, avSize_t elements, T learning_rate, T beta1, T beta2, T alpha,
+			T beta)
 	{
-		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
+		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
 			momentum[i] = momentum[i] * beta1 + update[i] * (one<T>() - beta1);
 			variance[i] = variance[i] * beta2 + square(update[i]) * (one<T>() - beta2);
-			weight[i] -= momentum[i] * learning_rate / sqrt(variance[i] + eps<T>());
-			weight[i] = round_small_to_zero(weight[i]);
+			T tmp = -momentum[i] * learning_rate / sqrt(variance[i] + eps<T>());
+			weight[i] = round_small_to_zero(alpha * tmp + beta * weight[i]);
 		}
 	}
 
-	avStatus_t launcher_sgd(const cuda::ContextDescriptor &context, const cuda::OptimizerDescriptor &config, const cuda::TensorDescriptor &wDesc,
-			cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor& workspace)
+	avStatus_t launcher_sgd(const cuda::ContextDescriptor &context, const cuda::OptimizerDescriptor &config, const void *alpha, const void *beta,
+			const cuda::TensorDescriptor &wDesc, cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor& workspace)
 	{
 		const avSize_t elements = wDesc.volume();
-		bool use_momentum = config.flags[0];
-		bool use_nesterov = config.flags[1];
+		const bool use_momentum = config.flags[0];
+		const bool use_nesterov = config.flags[1];
 		if (use_momentum)
 		{
 			if (workspace.size() < elements * cuda::dataTypeSize(wDesc.dtype()))
@@ -80,20 +82,24 @@ namespace
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				float beta = config.coef[0];
-				float learning_rate = config.learning_rate;
-				float *momentum = use_momentum ? nullptr : workspace.data<float>();
-				kernel_learn_sgd<<<gridDim, blockDim, 0, stream>>>(wMem.data<float>(), dwMem.data<float>(), momentum, elements, learning_rate, beta,
-						use_momentum, use_nesterov);
+				const float _alpha = cuda::getAlphaValue(alpha);
+				const float _beta = cuda::getBetaValue(beta);
+				const float beta1 = config.coef[0];
+				const float learning_rate = config.learning_rate;
+				float *momentum = use_momentum ? workspace.data<float>() : nullptr;
+				kernel_learn_sgd<<<gridDim, blockDim, 0, stream>>>(wMem.data<float>(), dwMem.data<float>(), momentum, elements, learning_rate, beta1,
+						use_momentum, use_nesterov, _alpha, _beta);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				double beta = config.coef[0];
-				double learning_rate = config.learning_rate;
-				double *momentum = use_momentum ? nullptr : workspace.data<double>();
-				kernel_learn_sgd<<<gridDim, blockDim, 0, stream>>>(wMem.data<double>(), dwMem.data<double>(), momentum, elements, learning_rate, beta,
-						use_momentum, use_nesterov);
+				const double _alpha = cuda::getAlphaValue<double>(alpha);
+				const double _beta = cuda::getBetaValue<double>(beta);
+				const double beta1 = config.coef[0];
+				const double learning_rate = config.learning_rate;
+				double *momentum = use_momentum ? workspace.data<double>() : nullptr;
+				kernel_learn_sgd<<<gridDim, blockDim, 0, stream>>>(wMem.data<double>(), dwMem.data<double>(), momentum, elements, learning_rate, beta1,
+						use_momentum, use_nesterov, _alpha, _beta);
 				break;
 			}
 			default:
@@ -101,8 +107,8 @@ namespace
 		}
 		return checkForErrors();
 	}
-	avStatus_t launcher_adam(const cuda::ContextDescriptor & context, const cuda::OptimizerDescriptor& config, const cuda::TensorDescriptor & wDesc,
-			cuda::MemoryDescriptor & wMem, const cuda::MemoryDescriptor & dwMem, cuda::MemoryDescriptor & workspace)
+	avStatus_t launcher_adam(const cuda::ContextDescriptor & context, const cuda::OptimizerDescriptor& config, const void *alpha, const void *beta,
+			const cuda::TensorDescriptor & wDesc, cuda::MemoryDescriptor & wMem, const cuda::MemoryDescriptor & dwMem, cuda::MemoryDescriptor & workspace)
 	{
 		const avSize_t elements = wDesc.volume();
 
@@ -117,20 +123,24 @@ namespace
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				float beta1 = config.coef[0];
-				float beta2 = config.coef[1];
-				float learning_rate = config.learning_rate;
+				const float _alpha = cuda::getAlphaValue(alpha);
+				const float _beta = cuda::getBetaValue(beta);
+				const float beta1 = config.coef[0];
+				const float beta2 = config.coef[1];
+				const float learning_rate = config.learning_rate;
 				kernel_learn_adam<<<gridDim, blockDim, 0, stream>>>(wMem.data<float>(), dwMem.data<float>(), workspace.data<float>(),
-						workspace.data<float>() + elements, elements, learning_rate, beta1, beta2);
+						workspace.data<float>() + elements, elements, learning_rate, beta1, beta2, _alpha, _beta);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				double beta1 = config.coef[0];
-				double beta2 = config.coef[1];
-				double learning_rate = config.learning_rate;
+				const double _alpha = cuda::getAlphaValue<double>(alpha);
+				const double _beta = cuda::getBetaValue<double>(beta);
+				const double beta1 = config.coef[0];
+				const double beta2 = config.coef[1];
+				const double learning_rate = config.learning_rate;
 				kernel_learn_adam<<<gridDim, blockDim, 0, stream>>>(wMem.data<double>(), dwMem.data<double>(), workspace.data<double>(),
-						workspace.data<double>() + elements, elements, learning_rate, beta1, beta2);
+						workspace.data<double>() + elements, elements, learning_rate, beta1, beta2, _alpha, _beta);
 				break;
 			}
 			default:
@@ -151,10 +161,10 @@ namespace avocado
 			switch (cuda::getOptimizer(config).type)
 			{
 				case AVOCADO_OPTIMIZER_SGD:
-					return launcher_sgd(cuda::getContext(context), cuda::getOptimizer(config), cuda::getTensor(wDesc), cuda::getMemory(wMem),
+					return launcher_sgd(cuda::getContext(context), cuda::getOptimizer(config), alpha, beta, cuda::getTensor(wDesc), cuda::getMemory(wMem),
 							cuda::getMemory(dwMem), cuda::getMemory(workspace));
 				case AVOCADO_OPTIMIZER_ADAM:
-					return launcher_adam(cuda::getContext(context), cuda::getOptimizer(config), cuda::getTensor(wDesc), cuda::getMemory(wMem),
+					return launcher_adam(cuda::getContext(context), cuda::getOptimizer(config), alpha, beta, cuda::getTensor(wDesc), cuda::getMemory(wMem),
 							cuda::getMemory(dwMem), cuda::getMemory(workspace));
 				default:
 					return AVOCADO_STATUS_BAD_PARAM;
