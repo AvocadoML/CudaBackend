@@ -13,22 +13,22 @@ namespace avocado
 {
 	namespace backend
 	{
-//		TEST(TestRegularizer, float32_L2)
-//		{
-//			if (not supportsType(0, AVOCADO_DTYPE_FLOAT32))
-//				GTEST_SKIP();
-//			RegularizerTest data(0, { 23, 45 }, AVOCADO_DTYPE_FLOAT32);
-//			float alpha = 1.1f, beta = 1.0f;
-//			EXPECT_LT(data.getDifference(&alpha, &beta), 1.0e-3);
-//		}
-//		TEST(TestRegularizer, float64_L2)
-//		{
-//			if (not supportsType(0, AVOCADO_DTYPE_FLOAT64))
-//				GTEST_SKIP();
-//			RegularizerTest data(0, { 23, 45 }, AVOCADO_DTYPE_FLOAT64);
-//			double alpha = 1.1, beta = 1.0;
-//			EXPECT_LT(data.getDifference(&alpha, &beta), 1.0e-4);
-//		}
+		TEST(TestRegularizer, float32_L2)
+		{
+			if (not supportsType(AVOCADO_DTYPE_FLOAT32))
+				GTEST_SKIP();
+			RegularizerTest data( { 23, 45 }, AVOCADO_DTYPE_FLOAT32);
+			float coefficient = 1.0f, offset = 0.0f;
+			EXPECT_LT(data.getDifference(&coefficient, &offset), 1.0e-3);
+		}
+		TEST(TestRegularizer, float64_L2)
+		{
+			if (not supportsType(AVOCADO_DTYPE_FLOAT64))
+				GTEST_SKIP();
+			RegularizerTest data( { 203, 405 }, AVOCADO_DTYPE_FLOAT64);
+			double coefficient = 1.0, offset = 0.0;
+			EXPECT_LT(data.getDifference(&coefficient, &offset), 1.0e-4);
+		}
 
 	} /* namespace backend */
 } /* namespace avocado */

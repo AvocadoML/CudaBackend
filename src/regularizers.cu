@@ -19,10 +19,10 @@
 namespace
 {
 	template<typename T>
-	__global__ void kernel_regularizer_l2(T *gradient, const T *param, T coefficient, T offset, unsigned int elements)
+	__global__ void kernel_regularizer_l2(T *gradient, const T *param, T scale, T offset, unsigned int elements)
 	{
 		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
-			gradient[i] += coefficient * (param[i] - offset);
+			gradient[i] += scale * (param[i] - offset);
 	}
 
 	template<typename T>
@@ -37,7 +37,7 @@ namespace
 		}
 	}
 	template<typename T>
-	__global__ void kernel_calculate_l2_loss_step1(T *dst, const T *param, T coefficient, T offset, unsigned int elements)
+	__global__ void kernel_calculate_l2_loss_step1(T *dst, const T *param, T scale, T offset, unsigned int elements)
 	{
 		__shared__ T storage[1024];
 		T acc = zero<T>();
@@ -48,7 +48,7 @@ namespace
 		__syncthreads();
 		block_reduce_linear(storage);
 		if (threadIdx.x == 0)
-			dst[blockIdx.x] = storage[0] * static_cast<T>(0.5);
+			dst[blockIdx.x] = storage[0] * static_cast<T>(0.5) * scale;
 	}
 	template<typename T>
 	__global__ void kernel_calculate_l2_loss_step2(T *dst)
@@ -61,30 +61,47 @@ namespace avocado
 {
 	namespace backend
 	{
-		avStatus_t cudaRegularizerL2(avContextDescriptor_t context, const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t gradientMem,
-				const avTensorDescriptor_t weightDesc, const avMemoryDescriptor_t weightMem, const void *coefficient, const void *offset, void *loss)
+		avStatus_t cudaRegularizerL2(avContextDescriptor_t context, const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t dwMem,
+				const avTensorDescriptor_t wDesc, const avMemoryDescriptor_t wMem, const void *scale, const void *offset, void *loss)
 		{
-			const unsigned int elements = cuda::getTensor(weightDesc).volume();
-			dim3 gridDim(512);
+			const unsigned int elements = cuda::getTensor(wDesc).volume();
 			dim3 blockDim(256);
+			dim3 gridDim(gridSize<1024>(elements, blockDim.x));
+
 			cudaStream_t stream = cuda::getContext(context).getStream();
 			cuda::getContext(context).setDevice();
 
-			switch (cuda::getTensor(weightDesc).dtype())
+			switch (cuda::getTensor(wDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
-					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(gradientMem), cuda::getPointer<float>(weightMem),
-							cuda::getScalarValue<float>(coefficient), cuda::getScalarValue<float>(offset), elements);
+					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(dwMem), cuda::getPointer<float>(wMem),
+							cuda::getScalarValue<float>(scale), cuda::getScalarValue<float>(offset), elements);
 					if (loss != nullptr)
 					{
 						float *workspace = cuda::getContext(context).getWorkspace().data<float>();
-						dim3 gridDim(gridSize<1024>(elements, 1024));
-						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, cuda::getPointer<float>(weightMem),
-								cuda::getScalarValue<float>(coefficient), cuda::getScalarValue<float>(offset), elements);
+						gridDim = dim3(gridSize<1024>(elements, 1024));
+						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, cuda::getPointer<float>(wMem),
+								cuda::getScalarValue<float>(scale), cuda::getScalarValue<float>(offset), elements);
 						if (gridDim.x > 1)
 							kernel_calculate_l2_loss_step2<<<1, 1024, 0, stream>>>(workspace);
 						cudaMemcpyAsync(loss, workspace, sizeof(float), cudaMemcpyDeviceToHost, cuda::getContext(context).getStream());
+					}
+					break;
+				}
+				case AVOCADO_DTYPE_FLOAT64:
+				{
+					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(dwMem), cuda::getPointer<double>(wMem),
+							cuda::getScalarValue<double>(scale), cuda::getScalarValue<double>(offset), elements);
+					if (loss != nullptr)
+					{
+						double *workspace = cuda::getContext(context).getWorkspace().data<double>();
+						gridDim = dim3(gridSize<1024>(elements, 1024));
+						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, cuda::getPointer<double>(wMem),
+								cuda::getScalarValue<double>(scale), cuda::getScalarValue<double>(offset), elements);
+						if (gridDim.x > 1)
+							kernel_calculate_l2_loss_step2<<<1, 1024, 0, stream>>>(workspace);
+						cudaMemcpyAsync(loss, workspace, sizeof(double), cudaMemcpyDeviceToHost, cuda::getContext(context).getStream());
 					}
 					break;
 				}

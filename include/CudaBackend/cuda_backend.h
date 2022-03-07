@@ -1041,8 +1041,8 @@ namespace avocado
 			/**
 			 * \param[in] context Context in which the operation is performed.
 			 */
-			DLL_PUBLIC avStatus_t cudaRegularizerL2(avContextDescriptor_t context, const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t gradientMem,
-					const avTensorDescriptor_t weightDesc, const avMemoryDescriptor_t weightMem, const void *coefficient, const void *offset, void *loss);
+			DLL_PUBLIC avStatus_t cudaRegularizerL2(avContextDescriptor_t context, const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t dwMem,
+					const avTensorDescriptor_t wDesc, const avMemoryDescriptor_t wMem, const void *scale, const void *offset, void *loss);
 
 #ifdef __cplusplus
 		}
