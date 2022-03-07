@@ -12,18 +12,6 @@
 
 #include <cuda_fp16.hpp>
 
-#define FP16_COMPUTE_MIN_ARCH 530
-#define FP16_STORAGE_MIN_ARCH 530
-
-namespace avocado
-{
-	namespace backend
-	{
-		typedef half float16;
-		typedef half2 float16x2;
-	} /* namespace backend */
-} /* namespace avocado */
-
 namespace numbers
 {
 	using avocado::backend::float16;

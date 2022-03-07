@@ -10,47 +10,13 @@
 
 #include "generic_number.cuh"
 
-#if __has_include(<cuda_bf16.h>)
-#  include <cuda_bf16.hpp>
-#  define HAS_BF16_HEADER 1
-#else
-#  define HAS_BF16_HEADER 0
-#endif
-
-#define BF16_COMPUTE_MIN_ARCH 800
-
 #if HAS_BF16_HEADER
-typedef __nv_bfloat16 bfloat16;
-typedef __nv_bfloat162 bfloat16x2;
-#else
-namespace avocado
-{
-	namespace backend
-	{
-		struct bfloat16
-		{
-			uint16_t x;
-		};
-	} /* namespace backend */
-} /* namespace avocado */
+#  include <cuda_bf16.hpp>
 #endif
 
 namespace numbers
 {
 	using avocado::backend::bfloat16;
-
-#if (__CUDA_ARCH__ < BF16_COMPUTE_MIN_ARCH) or not HAS_BF16_HEADER
-	DEVICE_INLINE __host__ bfloat16 float_to_bfloat16(float x)
-	{
-		return reinterpret_cast<bfloat16*>(&x)[1];
-	}
-	DEVICE_INLINE __host__ float bfloat16_to_float(bfloat16 x) noexcept
-	{
-		float result = 0.0f;
-		reinterpret_cast<bfloat16*>(&result)[1] = x;
-		return result;
-	}
-#endif
 
 	template<>
 	class Number<bfloat16>

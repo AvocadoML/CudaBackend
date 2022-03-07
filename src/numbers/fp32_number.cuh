@@ -19,6 +19,14 @@ namespace numbers
 		float m_data;
 	public:
 		__device__ Number() = default;
+		__device__ Number(float16 x) :
+				m_data(x)
+		{
+		}
+		__device__ Number(bfloat16 x) :
+				m_data(bfloat16_to_float(x))
+		{
+		}
 		__device__ Number(float x) :
 				m_data(x)
 		{
@@ -27,9 +35,33 @@ namespace numbers
 				m_data(static_cast<float>(x))
 		{
 		}
+		__device__ Number(const float16 *ptr, int num = 1)
+		{
+			load(ptr, num);
+		}
+		__device__ Number(const bfloat16 *ptr, int num = 1)
+		{
+			load(ptr, num);
+		}
 		__device__ Number(const float *ptr, int num = 1)
 		{
 			load(ptr, num);
+		}
+		__device__ Number(const double *ptr, int num = 1)
+		{
+			load(ptr, num);
+		}
+		__device__ void load(const float16 *ptr, int num = 1)
+		{
+			assert(ptr != nullptr);
+			if (num >= 1)
+				m_data = static_cast<float>(ptr[0]);
+		}
+		__device__ void load(const bfloat16 *ptr, int num = 1)
+		{
+			assert(ptr != nullptr);
+			if (num >= 1)
+				m_data = bfloat16_to_float(ptr[0]);
 		}
 		__device__ void load(const float *ptr, int num = 1)
 		{
@@ -37,11 +69,35 @@ namespace numbers
 			if (num >= 1)
 				m_data = ptr[0];
 		}
+		__device__ void load(const double *ptr, int num = 1)
+		{
+			assert(ptr != nullptr);
+			if (num >= 1)
+				m_data = static_cast<float>(ptr[0]);
+		}
+		__device__ void store(float16 *ptr, int num = 1) const
+		{
+			assert(ptr != nullptr);
+			if (num >= 1)
+				ptr[0] = m_data;
+		}
+		__device__ void store(bfloat16 *ptr, int num = 1) const
+		{
+			assert(ptr != nullptr);
+			if (num >= 1)
+				ptr[0] = float_to_bfloat16(m_data);
+		}
 		__device__ void store(float *ptr, int num = 1) const
 		{
 			assert(ptr != nullptr);
 			if (num >= 1)
 				ptr[0] = m_data;
+		}
+		__device__ void store(double *ptr, int num = 1) const
+		{
+			assert(ptr != nullptr);
+			if (num >= 1)
+				ptr[0] = static_cast<double>(m_data);
 		}
 		__device__ operator float() const
 		{
