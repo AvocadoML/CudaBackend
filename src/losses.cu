@@ -79,20 +79,22 @@ namespace
 		template<typename T>
 		__device__ T getLoss(T output, T target) const noexcept
 		{
-			return -(target * safe_log(output) + (one<T>() - target) * safe_log(one<T>() - output) - target * safe_log(target)
-					- (one<T>() - target) * safe_log(one<T>() - target));
+			CrossEntropy ce(is_fused);
+			return ce.getLoss(output, target) - ce.getLoss(target, target);
 		}
 		template<typename T>
 		__device__ T getGradient(T output, T target) const noexcept
 		{
-			return is_fused ? (output - target) : (output - target) / (eps<T>() + output * (one<T>() - output));
+			CrossEntropy ce(is_fused);
+			return ce.getGradient(output, target);
 		}
 	};
 
 	/* Kernels for summing loss over entire array */
 	template<typename T, class Function>
-	__global__ void kernel_reduce_op_step1(T *dst, const T *output, const T *target, int length, T inv_batch_size, Function fn)
+	__global__ void kernel_reduce_op_step1(T *dst, const T *output, const T *target, int length, Function fn)
 	{
+		assert(blockDim.x == 1024);
 		__shared__ T storage[1024];
 		T acc = static_cast<T>(0);
 		for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < length; i += blockDim.x * gridDim.x)
@@ -102,7 +104,7 @@ namespace
 		__syncthreads();
 		reduce_within_block(storage);
 		if (threadIdx.x == 0)
-			dst[blockIdx.x] = storage[0] * inv_batch_size;
+			dst[blockIdx.x] = storage[0];
 	}
 	template<typename T>
 	__global__ void kernel_reduce_op_step2(T *dst)
@@ -110,10 +112,10 @@ namespace
 		reduce_within_block(dst);
 	}
 	template<typename T, class Function>
-	__host__ void launch_reduce_op(cudaStream_t stream, const T *output, const T *target, T *workspace, int length, T inv_batch_size, Function fn) noexcept
+	__host__ void launch_reduce_op(cudaStream_t stream, const T *output, const T *target, T *workspace, int length, Function fn) noexcept
 	{
 		dim3 gridDim(gridSize<1024>(length, 1024));
-		kernel_reduce_op_step1<<<gridDim, 1024, 0, stream>>>(workspace, output, target, length, inv_batch_size, fn);
+		kernel_reduce_op_step1<<<gridDim, 1024, 0, stream>>>(workspace, output, target, length, fn);
 		if (gridDim.x > 1)
 			kernel_reduce_op_step2<<<1, 1024, 0, stream>>>(workspace);
 	}
@@ -143,15 +145,15 @@ namespace
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				float * workspace = cuda::getContext(context).getWorkspace().data<float>();
-				launch_reduce_op(stream, cuda::getPointer<float>(outputMem), cuda::getPointer<float>(targetMem), workspace, elements, 1.0f / batch_size, fn);
+				float *workspace = cuda::getContext(context).getWorkspace().data<float>();
+				launch_reduce_op(stream, cuda::getPointer<float>(outputMem), cuda::getPointer<float>(targetMem), workspace, elements, fn);
 				cudaMemcpyAsync(result, workspace, sizeof(float), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				double * workspace = cuda::getContext(context).getWorkspace().data<double>();
-				launch_reduce_op(stream, cuda::getPointer<double>(outputMem), cuda::getPointer<double>(targetMem), workspace, elements, 1.0 / batch_size, fn);
+				double *workspace = cuda::getContext(context).getWorkspace().data<double>();
+				launch_reduce_op(stream, cuda::getPointer<double>(outputMem), cuda::getPointer<double>(targetMem), workspace, elements, fn);
 				cudaMemcpyAsync(result, workspace, sizeof(double), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
@@ -163,7 +165,6 @@ namespace
 			const avMemoryDescriptor_t targetMem, const void *beta, avMemoryDescriptor_t gradientMem, Function fn) noexcept
 	{
 		const unsigned int elements = cuda::getTensor(outputDesc).volume();
-		const unsigned int batch_size = cuda::getTensor(outputDesc).firstDim();
 		cudaStream_t stream = cuda::getContext(context).getStream();
 
 		dim3 blockDim(256);
@@ -174,13 +175,13 @@ namespace
 			case AVOCADO_DTYPE_FLOAT32:
 			{
 				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(gradientMem), cuda::getPointer<float>(outputMem),
-						cuda::getPointer<float>(targetMem), elements, cuda::getAlphaValue(alpha) / batch_size, cuda::getBetaValue(beta), fn);
+						cuda::getPointer<float>(targetMem), elements, cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), fn);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
 				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(gradientMem), cuda::getPointer<double>(outputMem),
-						cuda::getPointer<double>(targetMem), elements, cuda::getAlphaValue<double>(alpha) / batch_size, cuda::getBetaValue<double>(beta), fn);
+						cuda::getPointer<double>(targetMem), elements, cuda::getAlphaValue<double>(alpha), cuda::getBetaValue<double>(beta), fn);
 				break;
 			}
 		}
