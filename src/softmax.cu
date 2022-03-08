@@ -39,31 +39,31 @@ namespace
 				max_element = max(max_element, input_storage[(i + threadIdx.x) * last_dim + j]);
 
 			/* Second, calculate sum of exponents of input data, shifted by their maximum element */
-			T sum = zero<T>();
+			T sum = scalar_zero<T>();
 			for (unsigned int j = 0; j < last_dim; j++)
 			{
 				input_storage[(i + threadIdx.x) * last_dim + j] = exp(input_storage[(i + threadIdx.x) * last_dim + j] - max_element);
 				sum += input_storage[(i + threadIdx.x) * last_dim + j];
 			}
 
-			if (sum == zero<T>())
+			if (sum == scalar_zero<T>())
 			{
-				sum = one<T>() / last_dim;
+				sum = scalar_one<T>() / last_dim;
 				for (unsigned int j = 0; j < last_dim; j++)
 				{
 					T tmp = alpha * sum;
-					if (beta != zero<U>())
+					if (beta != scalar_zero<U>())
 						tmp += beta * output[i * last_dim + j];
 					output[i * last_dim + j] = tmp;
 				}
 			}
 			else
 			{
-				sum = one<T>() / sum;
+				sum = scalar_one<T>() / sum;
 				for (unsigned int j = 0; j < last_dim; j++)
 				{
 					T tmp = alpha * input_storage[(i + threadIdx.x) * last_dim + j] * sum;
-					if (beta != zero<U>())
+					if (beta != scalar_zero<U>())
 						tmp += beta * output[i * last_dim + j];
 					input_storage[(i + threadIdx.x) * last_dim + j] = tmp;
 				}
@@ -396,7 +396,7 @@ namespace
 		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
 			T tmp = alpha * activation.backward(gradient_next[i], output[i]);
-			if (beta != zero<U>())
+			if (beta != scalar_zero<U>())
 				tmp += beta * gradient_prev[i];
 			gradient_prev[i] = tmp;
 		}

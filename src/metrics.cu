@@ -29,7 +29,6 @@ namespace avocado
 				const avMemoryDescriptor_t outputMem, const avTensorDescriptor_t targetDesc, const avMemoryDescriptor_t targetMem, void *result)
 		{
 			cuda::getContext(context).setDevice();
-			test_kernel<float> <<<1, 1, 0, 0>>>(nullptr);
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}
 

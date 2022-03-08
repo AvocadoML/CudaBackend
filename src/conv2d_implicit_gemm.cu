@@ -193,8 +193,8 @@ namespace
 		__shared__ InputType input_storage[InputTileSize * InputTileSize * InputFilterFragments];
 		__shared__ InputType weight_storage[OutputFilterFragments * InputFilterFragments];
 
-		Tile<InputType> acc0(zero<InputType>());
-		Tile<InputType> acc1(zero<InputType>());
+		Tile<InputType> acc0(scalar_zero<InputType>());
+		Tile<InputType> acc1(scalar_zero<InputType>());
 		for (int input_filter = 0; input_filter < input_shape.filters; input_filter += InputFilterFragments)
 		{
 			int2 tmp_thread_idx = split_thread_index(InputFilterFragments); // divide into 32x8
@@ -222,7 +222,7 @@ namespace
 					input_storage[index] = input[offset];
 				}
 				else
-					input_storage[index] = zero<InputType>();
+					input_storage[index] = scalar_zero<InputType>();
 			}
 
 //			__syncthreads();
@@ -312,7 +312,7 @@ namespace
 					if (add != nullptr)
 						tmp += alpha2 * add[index];
 					tmp = Activation().forward(tmp);
-					if (beta != zero<ScaleType>())
+					if (beta != scalar_zero<ScaleType>())
 						tmp += beta * output[index];
 					output[index + tmp_thread_idx.x] = tmp;
 				}

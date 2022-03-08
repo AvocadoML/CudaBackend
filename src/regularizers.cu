@@ -40,7 +40,7 @@ namespace
 	__global__ void kernel_calculate_l2_loss_step1(T *dst, const T *param, T scale, T offset, unsigned int elements)
 	{
 		__shared__ T storage[1024];
-		T acc = zero<T>();
+		T acc = scalar_zero<T>();
 		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += blockDim.x * gridDim.x)
 			acc += square(param[i] - offset);
 		storage[threadIdx.x] = acc;

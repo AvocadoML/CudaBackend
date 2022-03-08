@@ -11,88 +11,88 @@
 #include "numbers/numbers.cuh"
 
 template<typename T>
-__host__                      __device__ T zero() noexcept
+__host__   __device__ T scalar_zero() noexcept
 {
 	return static_cast<T>(0.0);
 }
 template<typename T>
-__host__                      __device__ T one() noexcept
+__host__   __device__ T scalar_one() noexcept
 {
 	return static_cast<T>(1.0);
 }
 template<typename T>
-__host__                      __device__ T eps() noexcept
+__host__   __device__ T scalar_eps() noexcept
 {
 	return static_cast<T>(1.0e-16);
 }
 
-template<typename dstType, typename srcType>
-struct Store
-{
-	__device__ dstType operator()(srcType x) const noexcept
-	{
-		return static_cast<dstType>(x);
-	}
-};
-template<>
-struct Store<int8_t, float>
-{
-	__device__ int8_t operator()(float x) const noexcept
-	{
-		return static_cast<int8_t>(max(-128.0f, min(127.0f, x)));
-	}
-};
-template<>
-struct Store<uint8_t, float>
-{
-	__device__ uint8_t operator()(float x) const noexcept
-	{
-		return static_cast<uint8_t>(max(0.0f, min(255.0f, x)));
-	}
-};
-template<>
-struct Store<int16_t, float>
-{
-	__device__ int16_t operator()(float x) const noexcept
-	{
-		return static_cast<int16_t>(max(-32768.0f, min(32767.0f, x)));
-	}
-};
-template<>
-struct Store<int32_t, float>
-{
-	__device__ int32_t operator()(float x) const noexcept
-	{
-		return static_cast<int32_t>(max(-2147483648.0f, min(2147483647.0f, x)));
-	}
-};
+//template<typename dstType, typename srcType>
+//struct Store
+//{
+//	__device__ dstType operator()(srcType x) const noexcept
+//	{
+//		return static_cast<dstType>(x);
+//	}
+//};
+//template<>
+//struct Store<int8_t, float>
+//{
+//	__device__ int8_t operator()(float x) const noexcept
+//	{
+//		return static_cast<int8_t>(max(-128.0f, min(127.0f, x)));
+//	}
+//};
+//template<>
+//struct Store<uint8_t, float>
+//{
+//	__device__ uint8_t operator()(float x) const noexcept
+//	{
+//		return static_cast<uint8_t>(max(0.0f, min(255.0f, x)));
+//	}
+//};
+//template<>
+//struct Store<int16_t, float>
+//{
+//	__device__ int16_t operator()(float x) const noexcept
+//	{
+//		return static_cast<int16_t>(max(-32768.0f, min(32767.0f, x)));
+//	}
+//};
+//template<>
+//struct Store<int32_t, float>
+//{
+//	__device__ int32_t operator()(float x) const noexcept
+//	{
+//		return static_cast<int32_t>(max(-2147483648.0f, min(2147483647.0f, x)));
+//	}
+//};
 
 template<typename T>
-__device__ __host__ constexpr T square(T x) noexcept
+__device__    __host__ constexpr T square(T x) noexcept
 {
 	return x * x;
 }
 template<typename T>
 __device__ T safe_log(T x) noexcept
 {
-	return std::log(eps<T>() + x);
+	return std::log(scalar_eps<T>() + x);
 }
 template<typename T>
 __device__ bool ispow2(T x) noexcept
 {
-	return x > zero<T>() && !(x & (x - one<T>()));
+	return x > scalar_zero<T>() && !(x & (x - scalar_one<T>()));
 }
 template<typename T>
 __device__ T sgn(T x) noexcept
 {
-	if (x > zero<T>())
-		return one<T>();
+	if (x > scalar_zero<T>())
+		return scalar_one<T>();
 	else
 	{
-		if (x < zero<T>())
-			return -one<T>();
+		if (x < scalar_zero<T>())
+			return -scalar_one<T>();
 		else
-			return zero<T>();
+			return scalar_zero<T>();
 	}
 //	return (zero<T>() < x) - (x < zero<T>());
 }
@@ -111,14 +111,14 @@ struct ActivationLinear
 	{
 		return gradient;
 	}
-	__device__ T forward(T input) const
-	{
-		return input;
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return gradient;
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return input;
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return gradient;
+//	}
 };
 
 /**
@@ -135,14 +135,14 @@ struct ActivationSigmoid
 	{
 		return gradient * (numbers::one<T>() - output) * output;
 	}
-	__device__ T forward(T input) const
-	{
-		return one<T>() / (one<T>() + exp(-input));
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return gradient * (one<T>() - output) * output;
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return scalar_one<T>() / (scalar_one<T>() + exp(-input));
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return gradient * (scalar_one<T>() - output) * output;
+//	}
 };
 
 /**
@@ -159,14 +159,14 @@ struct ActivationTanh
 	{
 		return gradient * (numbers::one<T>() - output) * (numbers::one<T>() + output);
 	}
-	__device__ T forward(T input) const
-	{
-		return tanh(input);
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return gradient * (one<T>() - output) * (one<T>() + output);
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return tanh(input);
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return gradient * (scalar_one<T>() - output) * (scalar_one<T>() + output);
+//	}
 };
 
 /**
@@ -183,14 +183,14 @@ struct ActivationRelu
 	{
 		return output > numbers::zero<T>() ? gradient : numbers::zero<T>();
 	}
-	__device__ T forward(T input) const
-	{
-		return max(zero<T>(), input);
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return output > zero<T>() ? gradient : zero<T>();
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return max(scalar_zero<T>(), input);
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return output > scalar_zero<T>() ? gradient : scalar_zero<T>();
+//	}
 };
 
 /**
@@ -213,14 +213,14 @@ struct ActivationSelu
 		else
 			return numbers::Number<T>(1.05070098f) * gradient * numbers::Number<T>(1.67326324f) * (output + numbers::one<T>());
 	}
-	__device__ T forward(T input) const
-	{
-		return static_cast<T>(1.05070098) * (input >= zero<T>() ? input : static_cast<T>(1.67326324) * expm1(input));
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return static_cast<T>(1.05070098) * gradient * (output >= zero<T>() ? one<T>() : static_cast<T>(1.67326324) * (output + one<T>()));
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return static_cast<T>(1.05070098) * (input >= scalar_zero<T>() ? input : static_cast<T>(1.67326324) * expm1(input));
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return static_cast<T>(1.05070098) * gradient * (output >= scalar_zero<T>() ? scalar_one<T>() : static_cast<T>(1.67326324) * (output + scalar_one<T>()));
+//	}
 };
 
 /**
@@ -243,14 +243,14 @@ struct ActivationElu
 		else
 			return gradient * (output + numbers::one<T>());
 	}
-	__device__ T forward(T input) const
-	{
-		return input >= zero<T>() ? input : expm1(input);
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return gradient * (output >= zero<T>() ? one<T>() : (output + one<T>()));
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return input >= scalar_zero<T>() ? input : expm1(input);
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return gradient * (output >= scalar_zero<T>() ? scalar_one<T>() : (output + scalar_one<T>()));
+//	}
 };
 
 /**
@@ -267,14 +267,14 @@ struct ActivationExponential
 	{
 		return gradient * output;
 	}
-	__device__ T forward(T input) const
-	{
-		return exp(input);
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return gradient * output;
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return exp(input);
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return gradient * output;
+//	}
 };
 
 /**
@@ -291,14 +291,14 @@ struct ActivationSoftplus
 	{
 		return gradient * numbers::expm1(output) / numbers::exp(output);
 	}
-	__device__ T forward(T input) const
-	{
-		return log1p(exp(input));
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return gradient * expm1(output) / exp(output);
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return log1p(exp(input));
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return gradient * expm1(output) / exp(output);
+//	}
 };
 
 /**
@@ -315,14 +315,14 @@ struct ActivationSoftsign
 	{
 		return gradient / square(abs(output / (numbers::one<T>() - numbers::sgn(output) * output)) + numbers::one<T>());
 	}
-	__device__ T forward(T input) const
-	{
-		return input / (fabs(input) + one<T>());
-	}
-	__device__ T backward(T gradient, T output) const
-	{
-		return gradient / square(fabs(output / (one<T>() - sgn(output) * output)) + one<T>());
-	}
+//	__device__ T forward(T input) const
+//	{
+//		return input / (fabs(input) + scalar_one<T>());
+//	}
+//	__device__ T backward(T gradient, T output) const
+//	{
+//		return gradient / square(fabs(output / (scalar_one<T>() - sgn(output) * output)) + scalar_one<T>());
+//	}
 };
 
 namespace avocado
@@ -330,13 +330,7 @@ namespace avocado
 	namespace backend
 	{
 		template<typename T>
-		__global__ void test_kernel(T *x)
-		{
-			x[0] = zero<T>();
-		}
-
-		template<typename T>
-		__device__ T activation_forward(avActivationType_t activation, T input) noexcept
+		__device__ numbers::Number<T> activation_forward(avActivationType_t activation, numbers::Number<T> input) noexcept
 		{
 			switch (activation)
 			{
@@ -362,7 +356,7 @@ namespace avocado
 			}
 		}
 		template<typename T>
-		__device__ T activation_backward(avActivationType_t activation, T gradient, T output) noexcept
+		__device__ numbers::Number<T> activation_backward(avActivationType_t activation, numbers::Number<T> gradient, numbers::Number<T> output) noexcept
 		{
 			switch (activation)
 			{

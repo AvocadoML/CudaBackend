@@ -50,7 +50,7 @@ namespace
 			in_h = in_h - kernel_size / 2;
 			in_w = in_w - kernel_size / 2;
 
-			T loaded = zero<T>();
+			T loaded = scalar_zero<T>();
 			int idx = ((in_b * input_shape.y + in_h) * input_shape.z + in_w) * filters + in_f;
 			if (in_h >= 0 && in_h < input_shape.y && in_w >= 0 && in_w < input_shape.z)
 				loaded = input[idx];

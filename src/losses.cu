@@ -59,12 +59,12 @@ namespace
 		template<typename T>
 		__device__ T getLoss(T output, T target) const noexcept
 		{
-			return -(target * safe_log(output) + (one<T>() - target) * safe_log(one<T>() - output));
+			return -(target * safe_log(output) + (scalar_one<T>() - target) * safe_log(scalar_one<T>() - output));
 		}
 		template<typename T>
 		__device__ T getGradient(T output, T target) const noexcept
 		{
-			return is_fused ? (output - target) : (output - target) / (eps<T>() + output * (one<T>() - output));
+			return is_fused ? (output - target) : (output - target) / (scalar_eps<T>() + output * (scalar_one<T>() - output));
 		}
 	};
 
@@ -127,7 +127,7 @@ namespace
 		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
 			U tmp = alpha * fn.getGradient(output[i], target[i]);
-			if (beta != zero<U>())
+			if (beta != scalar_zero<U>())
 				tmp += beta * gradient[i];
 			gradient[i] = tmp;
 		}

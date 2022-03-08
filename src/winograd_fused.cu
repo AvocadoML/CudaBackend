@@ -489,7 +489,7 @@ namespace
 		T x00, x01;
 		T x10, x11;
 
-		__device__ Tile2x2(T value = zero<T>())
+		__device__ Tile2x2(T value = scalar_zero<T>())
 		{
 			x00 = value;
 			x01 = value;
@@ -668,7 +668,7 @@ namespace
 					input_storage[index] = input[offset];
 				}
 				else
-					input_storage[index] = zero<T>();
+					input_storage[index] = scalar_zero<T>();
 			}
 
 			// weight_storage [OutputFilterFragments x KernelSize x KernelSize x InputFilterFragments]
@@ -703,10 +703,10 @@ namespace
 
 			__syncthreads();
 
-			Tile4x4<T> tile00(zero<T>());
-			Tile4x4<T> tile01(zero<T>());
-			Tile4x4<T> tile10(zero<T>());
-			Tile4x4<T> tile11(zero<T>());
+			Tile4x4<T> tile00(scalar_zero<T>());
+			Tile4x4<T> tile01(scalar_zero<T>());
+			Tile4x4<T> tile10(scalar_zero<T>());
+			Tile4x4<T> tile11(scalar_zero<T>());
 			for (int k = 0; k < InputFilterFragments; k++)
 			{
 				//here transform input and weight data into tiles
@@ -798,7 +798,7 @@ namespace
 					if (add != nullptr)
 						tmp += alpha2 * add[index];
 					tmp = Activation().forward(tmp);
-					if (beta != zero<T>())
+					if (beta != scalar_zero<T>())
 						tmp += beta * output[index];
 					output[index + tmp_thread_idx.x] = tmp;
 				}

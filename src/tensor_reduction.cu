@@ -25,7 +25,7 @@ namespace
 	{
 		__device__ T max() const noexcept
 		{
-			return zero<T>();
+			return scalar_zero<T>();
 		}
 	};
 	template<>

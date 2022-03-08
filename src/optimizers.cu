@@ -23,8 +23,8 @@ namespace
 	template<typename T>
 	__device__ T round_small_to_zero(T x)
 	{
-		if (x > -eps<T>() and x < eps<T>())
-			return zero<T>();
+		if (x > -scalar_eps<T>() and x < scalar_eps<T>())
+			return scalar_zero<T>();
 		else
 			return x;
 	}
@@ -55,9 +55,9 @@ namespace
 	{
 		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
-			momentum[i] = momentum[i] * beta1 + update[i] * (one<T>() - beta1);
-			variance[i] = variance[i] * beta2 + square(update[i]) * (one<T>() - beta2);
-			T tmp = -momentum[i] * learning_rate / sqrt(variance[i] + eps<T>());
+			momentum[i] = momentum[i] * beta1 + update[i] * (scalar_one<T>() - beta1);
+			variance[i] = variance[i] * beta2 + square(update[i]) * (scalar_one<T>() - beta2);
+			T tmp = -momentum[i] * learning_rate / sqrt(variance[i] + scalar_eps<T>());
 			weight[i] = round_small_to_zero(alpha * tmp + beta * weight[i]);
 		}
 	}

@@ -170,7 +170,10 @@ namespace
 
 				numbers::Number<biasT> tmp = _input + _bias;
 				if (_beta1 != numbers::zero<biasT>() or _beta2 != numbers::zero<biasT>())
-					tmp = _alpha1 * activation_forward(type, tmp + _beta1 * ext[i * last_dim + j]) + _beta2 * ext[i * last_dim + j];
+				{
+					numbers::Number<biasT> _ext(ext + i * last_dim + j, last_dim - j);
+					tmp = _alpha1 * activation_forward(type, tmp + _beta1 * _ext) + _beta2 * _ext;
+				}
 				else
 					tmp = _alpha1 * activation_forward(type, tmp);
 				if (_beta3 != numbers::zero<biasT>())

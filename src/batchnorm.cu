@@ -24,177 +24,177 @@ namespace
 	__global__ void kernel_affine_forward(const T *weight, const T *bias, const T *input, T *output, U alpha, U beta, unsigned int first_dim,
 			unsigned int last_dim, avActivationType_t activation)
 	{
-		assert(gridDim.x * blockDim.x <= last_dim);
-		assert(blockDim.x == 256 && blockDim.y == 1);
-		Store<T, U> store;
-		for (unsigned int j = blockIdx.x * blockDim.x + threadIdx.x; j < last_dim; j += gridDim.x * blockDim.x)
-		{
-			T scale = (weight == nullptr) ? one<T>() : weight[j];
-			T shift = (bias == nullptr) ? zero<T>() : bias[j];
-			for (unsigned int i = blockIdx.y; i < first_dim; i += gridDim.y)
-			{
-				U tmp = alpha * activation_forward(activation, input[i * last_dim + j] * scale + shift);
-				if (beta != zero<U>())
-					tmp += beta * output[i * last_dim + j];
-				output[i * last_dim + j] = store(tmp);
-			}
-		}
+//		assert(gridDim.x * blockDim.x <= last_dim);
+//		assert(blockDim.x == 256 && blockDim.y == 1);
+//		Store<T, U> store;
+//		for (unsigned int j = blockIdx.x * blockDim.x + threadIdx.x; j < last_dim; j += gridDim.x * blockDim.x)
+//		{
+//			T scale = (weight == nullptr) ? scalar_one<T>() : weight[j];
+//			T shift = (bias == nullptr) ? scalar_zero<T>() : bias[j];
+//			for (unsigned int i = blockIdx.y; i < first_dim; i += gridDim.y)
+//			{
+//				U tmp = alpha * activation_forward(activation, input[i * last_dim + j] * scale + shift);
+//				if (beta != scalar_zero<U>())
+//					tmp += beta * output[i * last_dim + j];
+//				output[i * last_dim + j] = store(tmp);
+//			}
+//		}
 	}
 
 	template<typename T>
 	__global__ void kernel_batchnorm_forward(const T *mean, const T *variance, const T *scale, const T *shift, const T *input, T *output, T alpha, T beta,
 			unsigned int first_dim, unsigned int last_dim, avActivationType_t activation, T epsilon)
 	{
-		for (unsigned int j = blockIdx.x * blockDim.x + threadIdx.x; j < last_dim; j += gridDim.x * blockDim.x)
-		{
-			T _scale = scale[j] / sqrt(variance[j] + epsilon);
-			T _shift = shift[j] - mean[j] * _scale;
-			for (unsigned int i = blockIdx.y; i < first_dim; i += gridDim.y)
-			{
-				T tmp = alpha * activation_forward(activation, input[i * last_dim + j] * _scale + _shift);
-				if (beta != zero<T>())
-					tmp += beta * output[i * last_dim + j];
-				output[i * last_dim + j] = tmp;
-			}
-		}
+//		for (unsigned int j = blockIdx.x * blockDim.x + threadIdx.x; j < last_dim; j += gridDim.x * blockDim.x)
+//		{
+//			T _scale = scale[j] / sqrt(variance[j] + epsilon);
+//			T _shift = shift[j] - mean[j] * _scale;
+//			for (unsigned int i = blockIdx.y; i < first_dim; i += gridDim.y)
+//			{
+//				T tmp = alpha * activation_forward(activation, input[i * last_dim + j] * _scale + _shift);
+//				if (beta != scalar_zero<T>())
+//					tmp += beta * output[i * last_dim + j];
+//				output[i * last_dim + j] = tmp;
+//			}
+//		}
 	}
 
 	template<typename T>
 	__device__ void block_reduce(T *workspace) noexcept
 	{
-		for (unsigned int i = 16; i >= 1; i /= 2) // sum results stored in temporary array
-		{
-			if (threadIdx.y < i)
-				workspace[threadIdx.y * 32 + threadIdx.x] += workspace[(i + threadIdx.y) * 32 + threadIdx.x];
-			__syncthreads();
-		}
+//		for (unsigned int i = 16; i >= 1; i /= 2) // sum results stored in temporary array
+//		{
+//			if (threadIdx.y < i)
+//				workspace[threadIdx.y * 32 + threadIdx.x] += workspace[(i + threadIdx.y) * 32 + threadIdx.x];
+//			__syncthreads();
+//		}
 	}
 	template<typename T>
 	__global__ void kernel_reduce_variance_1(T *workspace, const T* input, const T* mean, unsigned int first_dim, unsigned int last_dim)
 	{
-		__shared__ T storage[32 * 32];
-		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
-		{
-			unsigned int idx = j + threadIdx.x;
-			T acc = zero<T>();
-			if (idx < last_dim)
-			{
-				T avg = mean[idx];
-				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-					acc += square(input[i * last_dim + idx] - avg);
-			}
-			storage[threadIdx.y * 32 + threadIdx.x] = acc;
-
-			__syncthreads();
-			block_reduce(storage);
-			if (threadIdx.y == 0 and idx < last_dim)
-				workspace[blockIdx.y * last_dim + idx] = storage[0 * 32 + threadIdx.x];
-		}
+//		__shared__ T storage[32 * 32];
+//		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
+//		{
+//			unsigned int idx = j + threadIdx.x;
+//			T acc = scalar_zero<T>();
+//			if (idx < last_dim)
+//			{
+//				T avg = mean[idx];
+//				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
+//					acc += square(input[i * last_dim + idx] - avg);
+//			}
+//			storage[threadIdx.y * 32 + threadIdx.x] = acc;
+//
+//			__syncthreads();
+//			block_reduce(storage);
+//			if (threadIdx.y == 0 and idx < last_dim)
+//				workspace[blockIdx.y * last_dim + idx] = storage[0 * 32 + threadIdx.x];
+//		}
 	}
 	template<typename T>
 	__global__ void kernel_reduce_variance_2(T *variance, const T* workspace, unsigned int first_dim, unsigned int last_dim)
 	{
-		__shared__ T storage[32 * 32];
-		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
-		{
-			unsigned int idx = j + threadIdx.x;
-
-			T acc = zero<T>();
-			if (idx < last_dim)
-			{
-				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-					acc += workspace[i * last_dim + idx];
-			}
-			storage[threadIdx.y * 32 + threadIdx.x] = acc;
-
-			__syncthreads();
-			block_reduce(storage);
-			if (threadIdx.y == 0 and idx < last_dim)
-				variance[blockIdx.y * last_dim + idx] = storage[0 * 32 + threadIdx.x] / first_dim;
-		}
+//		__shared__ T storage[32 * 32];
+//		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
+//		{
+//			unsigned int idx = j + threadIdx.x;
+//
+//			T acc = scalar_zero<T>();
+//			if (idx < last_dim)
+//			{
+//				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
+//					acc += workspace[i * last_dim + idx];
+//			}
+//			storage[threadIdx.y * 32 + threadIdx.x] = acc;
+//
+//			__syncthreads();
+//			block_reduce(storage);
+//			if (threadIdx.y == 0 and idx < last_dim)
+//				variance[blockIdx.y * last_dim + idx] = storage[0 * 32 + threadIdx.x] / first_dim;
+//		}
 	}
 
 	template<typename T>
 	__global__ void kernel_batchnorm_backward_delta_1(T *workspace, const T *input, const T *output, T *gradient_next, const T* mean, const T *variance,
 			unsigned int first_dim, unsigned int last_dim, avActivationType_t activation, T epsilon)
 	{
-		__shared__ T d_sigma[32 * 32];
-		__shared__ T d_mu[32 * 32];
-
-		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
-		{
-			unsigned int idx = j + threadIdx.x;
-
-			T acc_sigma = zero<T>();
-			T acc_mu = zero<T>();
-			if (idx < last_dim)
-			{
-				T avg = mean[idx];
-				T inv_stddev = one<T>() / sqrt(variance[idx] + epsilon);
-				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-				{
-					T tmp_grad = activation_backward(activation, gradient_next[i * last_dim + idx], output[i * last_dim + idx]);
-					gradient_next[i * last_dim + idx] = tmp_grad;
-					acc_sigma += tmp_grad * (input[i * last_dim + idx] - avg) * inv_stddev;
-					acc_mu += tmp_grad;
-				}
-			}
-			d_sigma[threadIdx.y * 32 + threadIdx.x] = acc_sigma;
-			d_mu[threadIdx.y * 32 + threadIdx.x] = acc_mu;
-			__syncthreads();
-
-			block_reduce(d_sigma);
-			block_reduce(d_mu);
-
-			if (threadIdx.y == 0 and idx < last_dim)
-			{
-				workspace[2 * blockIdx.y * last_dim + idx] = d_sigma[threadIdx.x];
-				workspace[(2 * blockIdx.y + 1) * last_dim + idx] = d_mu[threadIdx.x];
-			}
-		}
+//		__shared__ T d_sigma[32 * 32];
+//		__shared__ T d_mu[32 * 32];
+//
+//		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
+//		{
+//			unsigned int idx = j + threadIdx.x;
+//
+//			T acc_sigma = scalar_zero<T>();
+//			T acc_mu = scalar_zero<T>();
+//			if (idx < last_dim)
+//			{
+//				T avg = mean[idx];
+//				T inv_stddev = scalar_one<T>() / sqrt(variance[idx] + epsilon);
+//				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
+//				{
+//					T tmp_grad = activation_backward(activation, gradient_next[i * last_dim + idx], output[i * last_dim + idx]);
+//					gradient_next[i * last_dim + idx] = tmp_grad;
+//					acc_sigma += tmp_grad * (input[i * last_dim + idx] - avg) * inv_stddev;
+//					acc_mu += tmp_grad;
+//				}
+//			}
+//			d_sigma[threadIdx.y * 32 + threadIdx.x] = acc_sigma;
+//			d_mu[threadIdx.y * 32 + threadIdx.x] = acc_mu;
+//			__syncthreads();
+//
+//			block_reduce(d_sigma);
+//			block_reduce(d_mu);
+//
+//			if (threadIdx.y == 0 and idx < last_dim)
+//			{
+//				workspace[2 * blockIdx.y * last_dim + idx] = d_sigma[threadIdx.x];
+//				workspace[(2 * blockIdx.y + 1) * last_dim + idx] = d_mu[threadIdx.x];
+//			}
+//		}
 	}
 	template<typename T>
 	__global__ void kernel_batchnorm_backward_delta_2(T* scaleUpdate, T* biasUpdate, T alpha, T beta, T *workspace, unsigned int first_dim,
 			unsigned int last_dim)
 	{
-		__shared__ T d_sigma[32 * 32];
-		__shared__ T d_mu[32 * 32];
-		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
-		{
-			unsigned int idx = j + threadIdx.x;
-
-			T acc_sigma = zero<T>();
-			T acc_mu = zero<T>();
-			if (idx < last_dim)
-			{
-				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-				{
-					acc_sigma += workspace[2 * i * last_dim + idx];
-					acc_mu += workspace[(2 * i + 1) * last_dim + idx];
-				}
-			}
-			d_sigma[threadIdx.y * 32 + threadIdx.x] = acc_sigma;
-			d_mu[threadIdx.y * 32 + threadIdx.x] = acc_mu;
-
-			__syncthreads();
-			block_reduce(d_sigma);
-			block_reduce(d_mu);
-			if (threadIdx.y == 0 and idx < last_dim)
-			{
-				workspace[idx] = d_sigma[threadIdx.x];
-				workspace[last_dim + idx] = d_mu[threadIdx.x];
-
-				T tmp_sigma = alpha * d_sigma[threadIdx.x];
-				T tmp_mu = alpha * d_mu[threadIdx.x];
-				if (beta == zero<T>())
-				{
-					tmp_sigma += beta * scaleUpdate[idx];
-					tmp_mu += beta * biasUpdate[idx];
-				}
-				scaleUpdate[idx] = tmp_sigma;
-				biasUpdate[idx] = tmp_mu;
-			}
-		}
+//		__shared__ T d_sigma[32 * 32];
+//		__shared__ T d_mu[32 * 32];
+//		for (unsigned int j = blockIdx.x * blockDim.x; j < last_dim; j += blockDim.x * gridDim.x)
+//		{
+//			unsigned int idx = j + threadIdx.x;
+//
+//			T acc_sigma = scalar_zero<T>();
+//			T acc_mu = scalar_zero<T>();
+//			if (idx < last_dim)
+//			{
+//				for (unsigned int i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
+//				{
+//					acc_sigma += workspace[2 * i * last_dim + idx];
+//					acc_mu += workspace[(2 * i + 1) * last_dim + idx];
+//				}
+//			}
+//			d_sigma[threadIdx.y * 32 + threadIdx.x] = acc_sigma;
+//			d_mu[threadIdx.y * 32 + threadIdx.x] = acc_mu;
+//
+//			__syncthreads();
+//			block_reduce(d_sigma);
+//			block_reduce(d_mu);
+//			if (threadIdx.y == 0 and idx < last_dim)
+//			{
+//				workspace[idx] = d_sigma[threadIdx.x];
+//				workspace[last_dim + idx] = d_mu[threadIdx.x];
+//
+//				T tmp_sigma = alpha * d_sigma[threadIdx.x];
+//				T tmp_mu = alpha * d_mu[threadIdx.x];
+//				if (beta == scalar_zero<T>())
+//				{
+//					tmp_sigma += beta * scaleUpdate[idx];
+//					tmp_mu += beta * biasUpdate[idx];
+//				}
+//				scaleUpdate[idx] = tmp_sigma;
+//				biasUpdate[idx] = tmp_mu;
+//			}
+//		}
 	}
 	template<typename T>
 	__global__ void kernel_batchnorm_backward(const T *workspace, const T* mean, const T* variance, const T* scale, const T *input, T *gradient_prev,
@@ -208,7 +208,7 @@ namespace
 			unsigned int idx = j + threadIdx.x;
 
 			T avg = mean[idx];
-			T inv_stddev = one<T>() / sqrt(variance[idx] + epsilon);
+			T inv_stddev = scalar_one<T>() / sqrt(variance[idx] + epsilon);
 			T gamma = scale[idx];
 			T d_sigma = workspace[idx];
 			T d_mu = workspace[last_dim + idx];
@@ -219,7 +219,7 @@ namespace
 			for (unsigned int i = blockIdx.y; i < first_dim; i += gridDim.y)
 			{
 				T tmp = gamma * inv_stddev * gradient_next[i * last_dim + idx] + d_sigma * (input[i * last_dim + idx] - avg) * inv_stddev + d_mu;
-				if (beta != zero<T>())
+				if (beta != scalar_zero<T>())
 					tmp += beta * gradient_prev[i * last_dim + j];
 				gradient_prev[i * last_dim + j] = tmp;
 			}
