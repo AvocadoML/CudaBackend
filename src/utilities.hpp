@@ -11,7 +11,8 @@
 #include <cuda_runtime_api.h>
 #include <cublas_v2.h>
 #include <algorithm>
-#include "../include/CudaBackend/cuda_backend.h"
+#include <CudaBackend/cuda_backend.h>
+#include <backend_descriptors.hpp>
 
 template<unsigned int maxBlocks>
 unsigned int gridSize(unsigned int problemSize, unsigned int blockSize) noexcept
@@ -61,6 +62,9 @@ namespace avocado
 	namespace backend
 	{
 		int cuda_sm_version(int device) noexcept;
+
+		bool is_conv(int expectedSize, const cuda::TensorDescriptor &wDesc) noexcept;
+
 	} /* namespace backend */
 } /* namespace avocado */
 

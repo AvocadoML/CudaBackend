@@ -68,7 +68,7 @@ struct Store<int32_t, float>
 };
 
 template<typename T>
-__device__ constexpr T square(T x) noexcept
+__device__ __host__ constexpr T square(T x) noexcept
 {
 	return x * x;
 }

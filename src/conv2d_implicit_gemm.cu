@@ -5,9 +5,9 @@
  *      Author: Maciej Kozarzewski
  */
 
+#include <CudaBackend/cuda_backend.h>
 #include <backend_descriptors.hpp>
 
-#include "winograd.hpp"
 #include "activations.cuh"
 #include "utilities.hpp"
 

@@ -74,6 +74,14 @@ namespace avocado
 {
 	namespace backend
 	{
+		bool is_conv(int expectedSize, const cuda::TensorDescriptor &wDesc) noexcept
+		{
+			for (int i = 0; i < wDesc.nbDims() - 2; i++)
+				if (wDesc.dimension(1 + i) != expectedSize)
+					return false;
+			return true;
+		}
+
 		avStatus_t cudaIm2Row(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
 				const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t colDesc, avMemoryDescriptor_t colMem)
 		{
