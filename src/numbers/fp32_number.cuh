@@ -216,6 +216,31 @@ namespace numbers
 		return tanf(x);
 	}
 
+	DEVICE_INLINE float horizontal_add(Number<float> x)
+	{
+		return static_cast<float>(x);
+	}
+	DEVICE_INLINE float horizontal_mul(Number<float> x)
+	{
+		return static_cast<float>(x);
+	}
+	DEVICE_INLINE float horizontal_max(Number<float> x)
+	{
+		return static_cast<float>(x);
+	}
+	DEVICE_INLINE float horizontal_min(Number<float> x)
+	{
+		return static_cast<float>(x);
+	}
+	DEVICE_INLINE float horizontal_or(Number<float> x)
+	{
+		return static_cast<float>(x);
+	}
+	DEVICE_INLINE float horizontal_and(Number<float> x)
+	{
+		return static_cast<float>(x);
+	}
+
 } /* namespace numbers */
 
 #endif /* FP32_NUMBER_CUH_ */

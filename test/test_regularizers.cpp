@@ -18,7 +18,7 @@ namespace avocado
 			if (not supportsType(AVOCADO_DTYPE_FLOAT32))
 				GTEST_SKIP();
 			RegularizerTest data( { 23, 45 }, AVOCADO_DTYPE_FLOAT32);
-			float coefficient = 1.0f, offset = 0.0f;
+			float coefficient = 1.1f, offset = 0.1f;
 			EXPECT_LT(data.getDifference(&coefficient, &offset), 1.0e-3);
 		}
 		TEST(TestRegularizer, float64_L2)
@@ -26,7 +26,7 @@ namespace avocado
 			if (not supportsType(AVOCADO_DTYPE_FLOAT64))
 				GTEST_SKIP();
 			RegularizerTest data( { 203, 405 }, AVOCADO_DTYPE_FLOAT64);
-			double coefficient = 1.0, offset = 0.0;
+			double coefficient = 1.1, offset = 0.1;
 			EXPECT_LT(data.getDifference(&coefficient, &offset), 1.0e-4);
 		}
 

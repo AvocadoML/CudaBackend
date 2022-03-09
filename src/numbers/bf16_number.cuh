@@ -158,6 +158,10 @@ namespace numbers
 		{
 			return Number<bfloat16>(-m_data);
 		}
+		__device__ bfloat16 get() const
+		{
+			return float_to_bfloat16(m_data);
+		}
 #endif
 		__device__ Number<bfloat16> operator~() const
 		{
@@ -368,6 +372,47 @@ namespace numbers
 #else
 		return tanf(x);
 #endif
+	}
+
+	DEVICE_INLINE bfloat16 horizontal_add(Number<bfloat16> x)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		// TODO
+#else
+		return x.get();
+#endif
+	}
+	DEVICE_INLINE bfloat16 horizontal_mul(Number<bfloat16> x)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		// TODO
+#else
+		return x.get();
+#endif
+	}
+	DEVICE_INLINE bfloat16 horizontal_max(Number<bfloat16> x)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		// TODO
+#else
+		return x.get();
+#endif
+	}
+	DEVICE_INLINE bfloat16 horizontal_min(Number<bfloat16> x)
+	{
+#if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
+		// TODO
+#else
+		return x.get();
+#endif
+	}
+	DEVICE_INLINE bfloat16 horizontal_or(Number<bfloat16> x)
+	{
+		return bfloat16(); // TODO
+	}
+	DEVICE_INLINE bfloat16 horizontal_and(Number<bfloat16> x)
+	{
+		return bfloat16(); // TODO
 	}
 
 } /* namespace numbers */

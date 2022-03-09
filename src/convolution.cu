@@ -28,7 +28,7 @@ namespace avocado
 	{
 
 		avStatus_t cudaGetConvolutionWorkspaceSize(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t xDesc,
-				const avTensorDescriptor_t wDesc, const avTensorDescriptor_t bDesc, avSize_t *result)
+				const avTensorDescriptor_t wDesc, const avTensorDescriptor_t bDesc, av_int64 *result)
 		{
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}

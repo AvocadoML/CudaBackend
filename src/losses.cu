@@ -10,6 +10,7 @@
 
 #include "activations.cuh"
 #include "utilities.hpp"
+#include "reduction_utils.cuh"
 
 #include <cuda_runtime_api.h>
 #include <cuda_fp16.h>
@@ -20,29 +21,17 @@ namespace
 {
 	using namespace avocado::backend;
 
-	template<typename T>
-	__device__ void reduce_within_block(T *ptr) noexcept
-	{
-		assert(ispow2(blockDim.x));
-		for (int i = blockDim.x / 2; i >= 1; i /= 2) // sum results stored in temporary array
-		{
-			if (threadIdx.x < i)
-				ptr[threadIdx.x] += ptr[threadIdx.x + i];
-			__syncthreads();
-		}
-	}
-
 	/* Functors for calculating losses and gradients */
 	class MeanSquareError
 	{
 	public:
 		template<typename T>
-		__device__ T getLoss(T output, T target) const noexcept
+		__device__ numbers::Number<T> getLoss(numbers::Number<T> output, numbers::Number<T> target) const noexcept
 		{
 			return static_cast<T>(0.5) * square(output - target);
 		}
 		template<typename T>
-		__device__ T getGradient(T output, T target) const noexcept
+		__device__ numbers::Number<T> getGradient(numbers::Number<T> output, numbers::Number<T> target) const noexcept
 		{
 			return output - target;
 		}
@@ -57,14 +46,17 @@ namespace
 		{
 		}
 		template<typename T>
-		__device__ T getLoss(T output, T target) const noexcept
+		__device__ numbers::Number<T> getLoss(numbers::Number<T> output, numbers::Number<T> target) const noexcept
 		{
-			return -(target * safe_log(output) + (scalar_one<T>() - target) * safe_log(scalar_one<T>() - output));
+			return -(target * safe_log(output) + (numbers::one<T>() - target) * safe_log(numbers::one<T>() - output));
 		}
 		template<typename T>
-		__device__ T getGradient(T output, T target) const noexcept
+		__device__ numbers::Number<T> getGradient(numbers::Number<T> output, numbers::Number<T> target) const noexcept
 		{
-			return is_fused ? (output - target) : (output - target) / (scalar_eps<T>() + output * (scalar_one<T>() - output));
+			if (is_fused)
+				return (output - target);
+			else
+				return (output - target) / (numbers::epsilon<T>() + output * (numbers::one<T>() - output));
 		}
 	};
 
@@ -77,13 +69,13 @@ namespace
 		{
 		}
 		template<typename T>
-		__device__ T getLoss(T output, T target) const noexcept
+		__device__ numbers::Number<T> getLoss(numbers::Number<T> output, numbers::Number<T> target) const noexcept
 		{
 			CrossEntropy ce(is_fused);
 			return ce.getLoss(output, target) - ce.getLoss(target, target);
 		}
 		template<typename T>
-		__device__ T getGradient(T output, T target) const noexcept
+		__device__ numbers::Number<T> getGradient(numbers::Number<T> output, numbers::Number<T> target) const noexcept
 		{
 			CrossEntropy ce(is_fused);
 			return ce.getGradient(output, target);
@@ -92,32 +84,75 @@ namespace
 
 	/* Kernels for summing loss over entire array */
 	template<typename T, class Function>
-	__global__ void kernel_reduce_op_step1(T *dst, const T *output, const T *target, int length, Function fn)
+	__global__ void kernel_reduce_op_step1(T *dst, const T *output, const T *target, int elements, Function fn)
 	{
 		assert(blockDim.x == 1024);
-		__shared__ T storage[1024];
-		T acc = static_cast<T>(0);
-		for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < length; i += blockDim.x * gridDim.x)
-			acc += fn.getLoss(output[i], target[i]);
+		__shared__ ReduceAdd<T> storage[1024];
+
+		ReduceAdd<T> acc;
+		acc.init();
+		for (uint32_t i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * blockDim.x * gridDim.x)
+		{
+			numbers::Number<T> _output(output + i, elements - i);
+			numbers::Number<T> _target(target + i, elements - i);
+			acc.accumulate(fn.getLoss(_output, _target));
+		}
 		storage[threadIdx.x] = acc;
 
 		__syncthreads();
-		reduce_within_block(storage);
+		block_linear_reducion(storage);
 		if (threadIdx.x == 0)
-			dst[blockIdx.x] = storage[0];
+		{
+			numbers::Number<T> tmp = (numbers::Number<T>) storage[0];
+			tmp.store(dst + numbers::length<T>() * blockIdx.x);
+		}
 	}
 	template<typename T>
 	__global__ void kernel_reduce_op_step2(T *dst)
 	{
-		reduce_within_block(dst);
+		assert(blockDim.x <= 1024);
+		__shared__ ReduceAdd<T> storage[1024];
+		for (int i = threadIdx.x; i < 1024; i += blockDim.x)
+			storage[i].init();
+		storage[threadIdx.x] = numbers::Number<T>(dst + numbers::length<T>() * threadIdx.x);
+		__syncthreads();
+		block_linear_reducion(storage);
+
+		if (threadIdx.x == 0)
+		{
+			storage[0].horizontal_reduction();
+			storage[0].final_action();
+			numbers::Number<T> tmp = (numbers::Number<T>) storage[0];
+			tmp.store(dst, 1);
+		}
 	}
 	template<typename T, class Function>
-	__host__ void launch_reduce_op(cudaStream_t stream, const T *output, const T *target, T *workspace, int length, Function fn) noexcept
+	avStatus_t launch_reduce_op(cudaStream_t stream, const T *output, const T *target, cuda::MemoryDescriptor &workspace, int elements, Function fn) noexcept
 	{
-		dim3 gridDim(gridSize<1024>(length, 1024));
-		kernel_reduce_op_step1<<<gridDim, 1024, 0, stream>>>(workspace, output, target, length, fn);
-		if (gridDim.x > 1)
-			kernel_reduce_op_step2<<<1, 1024, 0, stream>>>(workspace);
+		assert(output != nullptr);
+		assert(target != nullptr);
+		dim3 blockDim(1024);
+		const int partial_results = round_to_power_of_2(gridSize<1024>(elements, blockDim.x));
+		if (workspace.size() < sizeof(T) * partial_results)
+			return AVOCADO_STATUS_INTERNAL_ERROR;
+
+		kernel_reduce_op_step1<T, Function> <<<partial_results, blockDim, 0, stream>>>(workspace.data<T>(), output, target, elements, fn);
+		kernel_reduce_op_step2<T> <<<1, partial_results, 0, stream>>>(workspace.data<T>());
+		return checkForErrors();
+
+//		dim3 blockDim(1024);
+//		const int partial_results = round_to_power_of_2(gridSize<1024>(dimensions.first, blockDim.x));
+//		if (workspace.size() < sizeof(T) * partial_results)
+//			return AVOCADO_STATUS_INTERNAL_ERROR;
+//
+//		kernel_reduce_linear_1<Op, T> <<<partial_results, blockDim, 0, stream>>>(workspace.data<T>(), input, dimensions.first);
+//		kernel_reduce_linear_2<Op, T, U> <<<1, partial_results, 0, stream>>>(output, workspace.data<T>(), alpha, beta);
+
+//		kernel_reduce_op_step1<<<1, 1024, 0, stream>>>(workspace, output, target, length, fn);
+//		dim3 gridDim(gridSize<1024>(length, 1024));
+//		kernel_reduce_op_step1<<<gridDim, 1024, 0, stream>>>(workspace, output, target, length, fn);
+//		if (gridDim.x > 1)
+//			kernel_reduce_op_step2<<<1, 1024, 0, stream>>>(workspace);
 	}
 
 	/* Kernels for applying an operation to all elements (used for gradient calculation) */
@@ -126,7 +161,9 @@ namespace
 	{
 		for (unsigned int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
-			U tmp = alpha * fn.getGradient(output[i], target[i]);
+			numbers::Number<T> _output(output + i, elements - i);
+			numbers::Number<T> _target(target + i, elements - i);
+			U tmp = alpha * fn.getGradient(_output, _target);
 			if (beta != scalar_zero<U>())
 				tmp += beta * gradient[i];
 			gradient[i] = tmp;
@@ -145,16 +182,16 @@ namespace
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				float *workspace = cuda::getContext(context).getWorkspace().data<float>();
-				launch_reduce_op(stream, cuda::getPointer<float>(outputMem), cuda::getPointer<float>(targetMem), workspace, elements, fn);
-				cudaMemcpyAsync(result, workspace, sizeof(float), cudaMemcpyDeviceToHost, stream);
+				avStatus_t status = launch_reduce_op(stream, cuda::getPointer<float>(outputMem), cuda::getPointer<float>(targetMem),
+						cuda::getContext(context).getWorkspace(), elements, fn);
+				cudaMemcpyAsync(result, cuda::getContext(context).getWorkspace().data<float>(), sizeof(float), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				double *workspace = cuda::getContext(context).getWorkspace().data<double>();
-				launch_reduce_op(stream, cuda::getPointer<double>(outputMem), cuda::getPointer<double>(targetMem), workspace, elements, fn);
-				cudaMemcpyAsync(result, workspace, sizeof(double), cudaMemcpyDeviceToHost, stream);
+				avStatus_t status = launch_reduce_op(stream, cuda::getPointer<double>(outputMem), cuda::getPointer<double>(targetMem),
+						cuda::getContext(context).getWorkspace(), elements, fn);
+				cudaMemcpyAsync(result, cuda::getContext(context).getWorkspace().data<double>(), sizeof(double), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
 		}

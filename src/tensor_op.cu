@@ -192,10 +192,10 @@ namespace avocado
 				const avTensorDescriptor_t aDesc[], const avMemoryDescriptor_t aMem[], int nbTensors)
 		{
 			cuda::getContext(context).setDevice();
-			avSize_t last_dim_offset = 0;
+			uint32_t last_dim_offset = 0;
 			for (int i = 0; i < nbTensors; i++)
 			{
-				const avSize_t src_last_dim = cuda::getTensor(aDesc[i]).lastDim();
+				const uint32_t src_last_dim = cuda::getTensor(aDesc[i]).lastDim();
 				switch (cuda::dataTypeSize(cuda::getTensor(cDesc).dtype()))
 				{
 					case 1:
@@ -225,10 +225,10 @@ namespace avocado
 				const avTensorDescriptor_t aDesc, const avMemoryDescriptor_t aMem, int nbTensors)
 		{
 			cuda::getContext(context).setDevice();
-			avSize_t last_dim_offset = 0;
+			uint32_t last_dim_offset = 0;
 			for (int i = 0; i < nbTensors; i++)
 			{
-				const avSize_t dst_last_dim = cuda::getTensor(cDesc[i]).lastDim();
+				const uint32_t dst_last_dim = cuda::getTensor(cDesc[i]).lastDim();
 				switch (cuda::dataTypeSize(cuda::getTensor(cDesc[i]).dtype()))
 				{
 					case 1:

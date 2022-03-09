@@ -9,22 +9,116 @@
 #define ACTIVATIONS_CUH_
 
 #include "numbers/numbers.cuh"
+#include <backend_descriptors.hpp>
 
 template<typename T>
-__host__   __device__ T scalar_zero() noexcept
+__host__ __device__ T scalar_zero() noexcept
 {
 	return static_cast<T>(0.0);
 }
 template<typename T>
-__host__   __device__ T scalar_one() noexcept
+__host__ __device__ T scalar_one() noexcept
 {
 	return static_cast<T>(1.0);
 }
 template<typename T>
-__host__   __device__ T scalar_eps() noexcept
+__host__ __device__ T scalar_eps() noexcept
 {
 	return static_cast<T>(1.0e-16);
 }
+
+struct TensorShape
+{
+	int batch = 0;
+	int height = 0;
+	int width = 0;
+	int filters = 0;
+
+	__device__ TensorShape() = default;
+	__host__ TensorShape(const avocado::backend::cuda::TensorDescriptor &desc) :
+			batch(desc.dimension(0)), height(desc.dimension(1)), width(desc.dimension(2)), filters(desc.dimension(3))
+	{
+	}
+
+	__device__ int offset_at(int b, int h, int w, int f) const
+	{
+		assert(b >= 0 && b < batch);
+		assert(h >= 0 && h < height);
+		assert(w >= 0 && w < width);
+		assert(f >= 0 && f < filters);
+		return ((b * height + h) * width + w) * filters + f;
+	}
+	template<int TileSize>
+	__device__ int tile_index(int b, int h, int w) const
+	{
+		assert(b >= 0 && b < batch);
+		assert(h >= 0 && h < tiles_vertically<TileSize>());
+		assert(w >= 0 && w < tiles_horizontally<TileSize>());
+		return (b * tiles_vertically<TileSize>() + h) * tiles_horizontally<TileSize>() + w;
+	}
+	template<int TileSize>
+	__device__ int tiles_vertically() const
+	{
+		return (height + TileSize - 1) / TileSize;
+	}
+	template<int TileSize>
+	__device__ int tiles_horizontally() const
+	{
+		return (width + TileSize - 1) / TileSize;
+	}
+	__device__ int volume() const
+	{
+		return batch * height * width * filters;
+	}
+};
+struct Tensor2DShape
+{
+	int height = 0;
+	int width = 0;
+
+	__device__ Tensor2DShape() = default;
+	__host__ Tensor2DShape(const avocado::backend::cuda::TensorDescriptor &desc) :
+			height(desc.dimension(0)), width(desc.dimension(1))
+	{
+	}
+
+	__device__ int offset_at(int h, int w) const
+	{
+		assert(h >= 0 && h < height);
+		assert(w >= 0 && w < width);
+		return h * width + w;
+	}
+	__device__ int volume() const
+	{
+		return height * width;
+	}
+};
+
+struct MatrixShape
+{
+	int tile_size = 0;
+	int nb_tiles = 0;
+	int filters = 0;
+
+	__device__ MatrixShape() = default;
+	__host__ MatrixShape(const avocado::backend::cuda::TensorDescriptor &desc) :
+			tile_size(sqrt(desc.dimension(0))), nb_tiles(desc.dimension(1)), filters(desc.dimension(2))
+	{
+	}
+
+	__device__ int offset_at(int r, int c, int t, int f) const
+	{
+		return ((r * tile_size + c) * nb_tiles + t) * filters + f;
+	}
+	__device__ int stride_to_next_row() const
+	{
+		return tile_size * nb_tiles * filters;
+	}
+	__device__ int stride_to_next_column() const
+	{
+		return nb_tiles * filters;
+	}
+};
 
 //template<typename dstType, typename srcType>
 //struct Store
@@ -68,7 +162,7 @@ __host__   __device__ T scalar_eps() noexcept
 //};
 
 template<typename T>
-__device__    __host__ constexpr T square(T x) noexcept
+__device__ __host__ constexpr T square(T x) noexcept
 {
 	return x * x;
 }
@@ -76,6 +170,11 @@ template<typename T>
 __device__ T safe_log(T x) noexcept
 {
 	return std::log(scalar_eps<T>() + x);
+}
+template<typename T>
+__device__ numbers::Number<T> safe_log(numbers::Number<T> x) noexcept
+{
+	return numbers::log(numbers::epsilon<T>() + x);
 }
 template<typename T>
 __device__ bool ispow2(T x) noexcept

@@ -724,18 +724,6 @@ namespace avocado
 			 */
 
 			/**
-			 * \param[in] context Context in which the operation is performed.
-			 * \param[in] config
-			 * \param[in] filterDesc
-			 * \param[in] srcDesc
-			 * \param[in] srcMem
-			 * \param[in] rowDesc
-			 * \param[out] rowMem
-			 */
-			DLL_PUBLIC avStatus_t cudaIm2Row(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
-					const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t rowDesc, avMemoryDescriptor_t rowMem);
-
-			/**
 			 * \brief Creates new convolution descriptor.
 			 *
 			 * \param[out] result
@@ -778,6 +766,18 @@ namespace avocado
 			 */
 			DLL_PUBLIC avStatus_t cudaGetConvolutionDescriptor(avConvolutionDescriptor_t desc, avConvolutionMode_t *mode, int *nbDims, int padding[],
 					int strides[], int dilation[], int *groups, void *paddingValue);
+
+			/**
+			 * \param[in] context Context in which the operation is performed.
+			 * \param[in] config
+			 * \param[in] filterDesc
+			 * \param[in] srcDesc
+			 * \param[in] srcMem
+			 * \param[in] rowDesc
+			 * \param[out] rowMem
+			 */
+			DLL_PUBLIC avStatus_t cudaIm2Row(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
+					const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t rowDesc, avMemoryDescriptor_t rowMem);
 
 			/**
 			 * \brief Calculates convolution forward pass via implicit gemm algorithm.

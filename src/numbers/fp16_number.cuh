@@ -200,6 +200,10 @@ namespace numbers
 		{
 			return Number<float16>(-m_data);
 		}
+		__device__ float16 get() const
+		{
+			return m_data;
+		}
 #else
 		__device__ Number(const float16 *ptr, int num = 0)
 		{
@@ -486,6 +490,55 @@ namespace numbers
 #else
 		return Number<float16>();
 #endif
+	}
+
+	DEVICE_INLINE float16 horizontal_add(Number<float16> x)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return x.low() + x.high();
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return x.get();
+#else
+		return float16();
+#endif
+	}
+	DEVICE_INLINE float16 horizontal_mul(Number<float16> x)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return x.low() + x.high();
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return x.get();
+#else
+		return float16();
+#endif
+	}
+	DEVICE_INLINE float16 horizontal_max(Number<float16> x)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return x.low() > x.high() ? x.low() : x.high();
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return x.get();
+#else
+		return float16();
+#endif
+	}
+	DEVICE_INLINE float16 horizontal_min(Number<float16> x)
+	{
+#if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
+		return x.low() < x.high() ? x.low() : x.high();
+#elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
+		return x.get();
+#else
+		return float16();
+#endif
+	}
+	DEVICE_INLINE float16 horizontal_or(Number<float16> x)
+	{
+		return float16(); // TODO
+	}
+	DEVICE_INLINE float16 horizontal_and(Number<float16> x)
+	{
+		return float16(); // TODO
 	}
 
 } /* namespace numbers */

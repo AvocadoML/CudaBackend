@@ -50,11 +50,11 @@ namespace avocado
 	namespace backend
 	{
 
-		avStatus_t cudaCreateMemoryDescriptor(avMemoryDescriptor_t *result, avDeviceIndex_t deviceIndex, avSize_t sizeInBytes)
+		avStatus_t cudaCreateMemoryDescriptor(avMemoryDescriptor_t *result, avDeviceIndex_t deviceIndex, av_int64 sizeInBytes)
 		{
 			return cuda::create<cuda::MemoryDescriptor>(result, deviceIndex, sizeInBytes);
 		}
-		avStatus_t cudaCreateMemoryView(avMemoryDescriptor_t *result, const avMemoryDescriptor_t desc, avSize_t sizeInBytes, avSize_t offsetInBytes)
+		avStatus_t cudaCreateMemoryView(avMemoryDescriptor_t *result, const avMemoryDescriptor_t desc, av_int64 sizeInBytes, av_int64 offsetInBytes)
 		{
 			return cuda::create<cuda::MemoryDescriptor>(result, cuda::getMemory(desc), sizeInBytes, offsetInBytes);
 		}
@@ -62,8 +62,8 @@ namespace avocado
 		{
 			return cuda::destroy<cuda::MemoryDescriptor>(desc);
 		}
-		avStatus_t cudaSetMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, avSize_t dstSize, const void *pattern,
-				avSize_t patternSize)
+		avStatus_t cudaSetMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, av_int64 dstSize, const void *pattern,
+				av_int64 patternSize)
 		{
 			if (not cuda::same_device_type(context, dst))
 				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
@@ -102,8 +102,8 @@ namespace avocado
 			}
 			return AVOCADO_STATUS_INTERNAL_ERROR;
 		}
-		avStatus_t cudaCopyMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, const avMemoryDescriptor_t src,
-				avSize_t srcOffset, avSize_t count)
+		avStatus_t cudaCopyMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, const avMemoryDescriptor_t src,
+				av_int64 srcOffset, av_int64 count)
 		{
 			if (not cuda::same_device_type(context, dst, src))
 				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
@@ -139,7 +139,7 @@ namespace avocado
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
-		avStatus_t cudaCopyMemoryToHost(avContextDescriptor_t context, void *dst, const avMemoryDescriptor_t src, avSize_t srcOffset, avSize_t bytes)
+		avStatus_t cudaCopyMemoryToHost(avContextDescriptor_t context, void *dst, const avMemoryDescriptor_t src, av_int64 srcOffset, av_int64 bytes)
 		{
 			if (dst == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;
@@ -158,7 +158,7 @@ namespace avocado
 			}
 			return convertStatus(status);
 		}
-		avStatus_t cudaCopyMemoryFromHost(avContextDescriptor_t context, avMemoryDescriptor_t dst, avSize_t dstOffset, const void *src, avSize_t bytes)
+		avStatus_t cudaCopyMemoryFromHost(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, const void *src, av_int64 bytes)
 		{
 			if (src == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;
@@ -177,7 +177,7 @@ namespace avocado
 			}
 			return convertStatus(status);
 		}
-		avStatus_t cudaPageLock(void *ptr, avSize_t count)
+		avStatus_t cudaPageLock(void *ptr, av_int64 count)
 		{
 			if (ptr == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;
@@ -265,8 +265,11 @@ namespace avocado
 		}
 		avStatus_t cudaSetTensorDescriptor(avTensorDescriptor_t desc, avDataType_t dtype, int nbDims, const int dimensions[])
 		{
-			if (nbDims < 0 or nbDims > AVOCADO_MAX_TENSOR_DIMENSIONS or dimensions == nullptr)
+			if (nbDims < 0 or nbDims > AVOCADO_MAX_TENSOR_DIMENSIONS)
 				return AVOCADO_STATUS_BAD_PARAM;
+			if (dimensions == nullptr and nbDims != 0)
+				return AVOCADO_STATUS_BAD_PARAM;
+
 			try
 			{
 				cuda::getTensor(desc).set(dtype, nbDims, dimensions);
@@ -301,7 +304,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getConvolution(desc).set(mode, nbDims, strides, padding, dilation, groups, paddingValue);
+				cuda::getConvolution(desc).set(mode, nbDims, padding, strides, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -313,7 +316,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getConvolution(desc).get(mode, nbDims, strides, padding, dilation, groups, paddingValue);
+				cuda::getConvolution(desc).get(mode, nbDims, padding, strides, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -341,8 +344,7 @@ namespace avocado
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
-		avStatus_t cudaGetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t *type, double *learningRate, double coefficients[],
-				bool flags[])
+		avStatus_t cudaGetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t *type, double *learningRate, double coefficients[], bool flags[])
 		{
 			try
 			{
@@ -353,7 +355,7 @@ namespace avocado
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
-		avStatus_t cudaGetOptimizerWorkspaceSize(avOptimizerDescriptor_t desc, const avTensorDescriptor_t wDesc, avSize_t *result)
+		avStatus_t cudaGetOptimizerWorkspaceSize(avOptimizerDescriptor_t desc, const avTensorDescriptor_t wDesc, av_int64 *result)
 		{
 			if (result == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;

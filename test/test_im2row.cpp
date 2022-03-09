@@ -27,6 +27,7 @@ namespace avocado
 			data.set(AVOCADO_CONVOLUTION_MODE, { -2, -2, 0 }, { 1, 1, 0 }, { 1, 1, 0 }, 1, padding);
 			EXPECT_LE(data.getDifference(), 1.0e-6);
 		}
+
 //		TEST(TestIm2Row2D, padding_no_stride_no_dilation)
 //		{
 //			if (not supportsType(AVOCADO_DTYPE_INT32))

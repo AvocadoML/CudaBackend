@@ -251,13 +251,13 @@ namespace
 	};
 
 	template<typename T, typename U>
-	__global__ void kernel_convert(T *dst, const U *src, avSize_t elements)
+	__global__ void kernel_convert(T *dst, const U *src, av_int64 elements)
 	{
-		for (avSize_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
+		for (av_int64 i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 			dst[i] = Converter<T, U>().convert(src[i]);
 	}
 	template<typename T>
-	void convert_helper(cudaStream_t stream, T *dst, const void *src, avDataType_t srcType, avSize_t elements)
+	void convert_helper(cudaStream_t stream, T *dst, const void *src, avDataType_t srcType, av_int64 elements)
 	{
 		assert(dst != nullptr);
 		assert(src != nullptr);
@@ -311,7 +311,7 @@ namespace avocado
 	namespace backend
 	{
 		avStatus_t cudaChangeType(avContextDescriptor_t context, avMemoryDescriptor_t dst, avDataType_t dstType, const avMemoryDescriptor_t src,
-				avDataType_t srcType, avSize_t elements)
+				avDataType_t srcType, av_int64 elements)
 		{
 			cuda::getContext(context).setDevice();
 

@@ -30,7 +30,7 @@ namespace
 	}
 
 	template<typename T>
-	__global__ void kernel_learn_sgd(T *weight, const T *update, T *momentum, avSize_t elements, T learning_rate, T beta1, bool use_momentum, bool use_nesterov,
+	__global__ void kernel_learn_sgd(T *weight, const T *update, T *momentum, uint32_t elements, T learning_rate, T beta1, bool use_momentum, bool use_nesterov,
 			T alpha, T beta)
 	{
 		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
@@ -50,7 +50,7 @@ namespace
 		}
 	}
 	template<typename T>
-	__global__ void kernel_learn_adam(T *weight, const T *update, T *momentum, T *variance, avSize_t elements, T learning_rate, T beta1, T beta2, T alpha,
+	__global__ void kernel_learn_adam(T *weight, const T *update, T *momentum, T *variance, uint32_t elements, T learning_rate, T beta1, T beta2, T alpha,
 			T beta)
 	{
 		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
@@ -65,7 +65,7 @@ namespace
 	avStatus_t launcher_sgd(const cuda::ContextDescriptor &context, const cuda::OptimizerDescriptor &config, const void *alpha, const void *beta,
 			const cuda::TensorDescriptor &wDesc, cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor& workspace)
 	{
-		const avSize_t elements = wDesc.volume();
+		const uint32_t elements = wDesc.volume();
 		const bool use_momentum = config.flags[0];
 		const bool use_nesterov = config.flags[1];
 		if (use_momentum)
@@ -110,7 +110,7 @@ namespace
 	avStatus_t launcher_adam(const cuda::ContextDescriptor & context, const cuda::OptimizerDescriptor& config, const void *alpha, const void *beta,
 			const cuda::TensorDescriptor & wDesc, cuda::MemoryDescriptor & wMem, const cuda::MemoryDescriptor & dwMem, cuda::MemoryDescriptor & workspace)
 	{
-		const avSize_t elements = wDesc.volume();
+		const uint32_t elements = wDesc.volume();
 
 		if (workspace.size() < 2 * elements * cuda::dataTypeSize(wDesc.dtype()))
 			return AVOCADO_STATUS_INTERNAL_ERROR;

@@ -10,6 +10,7 @@
 
 #include "activations.cuh"
 #include "utilities.hpp"
+#include "reduction_utils.cuh"
 #include "numbers/numbers.cuh"
 
 #include <cuda_runtime_api.h>
@@ -67,39 +68,32 @@ namespace
 	}
 
 	template<typename T>
-	__device__ void block_reduce(T *workspace) noexcept
-	{
-		for (uint32_t i = 16; i >= 1; i /= 2) // sum results stored in temporary array
-		{
-			if (threadIdx.y < i)
-				workspace[threadIdx.y * 32 + threadIdx.x] += workspace[(i + threadIdx.y) * 32 + threadIdx.x];
-			__syncthreads();
-		}
-	}
-	template<typename T>
 	__global__ void kernel_reduce_variance_1(T *workspace, const T* input, const T* mean, uint32_t first_dim, uint32_t last_dim)
 	{
-		__shared__ Number<T> storage[32 * 32];
+		assert(blockDim.x == 32);
+		assert(blockDim.y == 32);
+		__shared__ ReduceAdd<T> storage[32 * 32];
 		for (uint32_t j = length<T>() * blockIdx.x * blockDim.x; j < last_dim; j += length<T>() * blockDim.x * gridDim.x)
 		{
-			uint32_t idx = j + threadIdx.x;
-			Number<T> acc = numbers::zero<T>();
+			uint32_t idx = j + length<T>() * threadIdx.x;
+			ReduceAdd<T> acc;
+			acc.init();
 			if (idx < last_dim)
 			{
-				Number<T> avg = mean[idx];
+				Number<T> avg(mean + idx, last_dim - idx);
 				for (uint32_t i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
 				{
 					Number<T> src(input + i * last_dim + idx, last_dim - idx);
-					acc += square(src - avg);
+					acc.accumulate(square(src - avg));
 				}
 			}
 			storage[threadIdx.y * 32 + threadIdx.x] = acc;
 
 			__syncthreads();
-			block_reduce(storage);
+			block_broadcasted_reduction(storage);
 			if (threadIdx.y == 0 and idx < last_dim)
 			{
-				Number<T> tmp = storage[0 * 32 + threadIdx.x];
+				Number<T> tmp = (Number<T> ) storage[0 * 32 + threadIdx.x];
 				tmp.store(workspace + blockIdx.y * last_dim + idx, last_dim - idx);
 			}
 		}
@@ -107,42 +101,75 @@ namespace
 	template<typename T>
 	__global__ void kernel_reduce_variance_2(T *variance, const T* workspace, uint32_t first_dim, uint32_t last_dim)
 	{
-		__shared__ Number<T> storage[32 * 32];
-		for (uint32_t j = length<T>() * blockIdx.x * blockDim.x; j < last_dim; j += length<T>() * blockDim.x * gridDim.x)
+		assert(blockDim.x == 32);
+		assert(blockDim.y == 32);
+		__shared__ ReduceAdd<T> storage[32 * 32];
+		for (uint32_t j = numbers::length<T>() * blockIdx.x * blockDim.x; j < last_dim; j += numbers::length<T>() * blockDim.x * gridDim.x)
 		{
-			uint32_t idx = j + threadIdx.x;
+			uint32_t idx = j + numbers::length<T>() * threadIdx.x;
 
-			Number<T> acc = numbers::zero<T>();
+			ReduceAdd<T> acc;
+			acc.init();
 			if (idx < last_dim)
 			{
 				for (uint32_t i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
-					acc += workspace[i * last_dim + idx];
+				{
+					Number<T> tmp = Number<T>(workspace + i * last_dim + idx, last_dim - idx);
+					acc.combine_partial(tmp);
+				}
 			}
 			storage[threadIdx.y * 32 + threadIdx.x] = acc;
 
 			__syncthreads();
-			block_reduce(storage);
+			block_broadcasted_reduction(storage);
 			if (threadIdx.y == 0 and idx < last_dim)
 			{
-				Number<T> tmp = storage[0 * 32 + threadIdx.x] / Number<T>(static_cast<double>(first_dim));
+				storage[0 * 32 + threadIdx.x].final_action();
+				numbers::Number<T> tmp = (numbers::Number<T>) (storage[0 * 32 + threadIdx.x]) / Number<T>(static_cast<double>(first_dim));
 				tmp.store(variance + blockIdx.y * last_dim + idx, last_dim - idx);
 			}
 		}
+
+//		__shared__ Number<T> storage[32 * 32];
+//		for (uint32_t j = length<T>() * blockIdx.x * blockDim.x; j < last_dim; j += length<T>() * blockDim.x * gridDim.x)
+//		{
+//			uint32_t idx = j + threadIdx.x;
+//
+//			Number<T> acc = numbers::zero<T>();
+//			if (idx < last_dim)
+//			{
+//				for (uint32_t i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
+//					acc += workspace[i * last_dim + idx];
+//			}
+//			storage[threadIdx.y * 32 + threadIdx.x] = acc;
+//
+//			__syncthreads();
+//			block_broadcasted_reduction(storage);
+//			if (threadIdx.y == 0 and idx < last_dim)
+//			{
+//				Number<T> tmp = storage[0 * 32 + threadIdx.x];
+//				tmp.store(variance + blockIdx.y * last_dim + idx, last_dim - idx);
+//			}
+//		}
 	}
 
 	template<typename T>
 	__global__ void kernel_batchnorm_backward_delta_1(T *workspace, const T *input, const T *output, T *gradient_next, const T* mean, const T *variance,
 			uint32_t first_dim, uint32_t last_dim, avActivationType_t activation, T epsilon)
 	{
-		__shared__ Number<T> d_sigma[32 * 32];
-		__shared__ Number<T> d_mu[32 * 32];
+		assert(blockDim.x == 32);
+		assert(blockDim.y == 32);
+		__shared__ ReduceAdd<T> d_sigma[32 * 32];
+		__shared__ ReduceAdd<T> d_mu[32 * 32];
 
 		for (uint32_t j = length<T>() * blockIdx.x * blockDim.x; j < last_dim; j += length<T>() * blockDim.x * gridDim.x)
 		{
-			uint32_t idx = j + threadIdx.x;
+			uint32_t idx = j + length<T>() * threadIdx.x;
 
-			Number<T> acc_sigma = scalar_zero<T>();
-			Number<T> acc_mu = scalar_zero<T>();
+			ReduceAdd<T> acc_sigma;
+			ReduceAdd<T> acc_mu;
+			acc_sigma.init();
+			acc_mu.init();
 			if (idx < last_dim)
 			{
 				Number<T> avg(mean + idx, last_dim - idx);
@@ -155,63 +182,72 @@ namespace
 					tmp_grad.store(gradient_next + i * last_dim + idx, last_dim - idx);
 
 					Number<T> tmp_in(input + i * last_dim + idx, last_dim - idx);
-					acc_sigma += tmp_grad * (tmp_in - avg) * inv_stddev;
-					acc_mu += tmp_grad;
+					acc_sigma.accumulate(tmp_grad * (tmp_in - avg) * inv_stddev);
+					acc_mu.accumulate(tmp_grad);
 				}
 			}
 			d_sigma[threadIdx.y * 32 + threadIdx.x] = acc_sigma;
 			d_mu[threadIdx.y * 32 + threadIdx.x] = acc_mu;
+
 			__syncthreads();
-
-			block_reduce(d_sigma);
-			block_reduce(d_mu);
-
+			block_broadcasted_reduction(d_sigma);
+			block_broadcasted_reduction(d_mu);
 			if (threadIdx.y == 0 and idx < last_dim)
 			{
-				d_sigma[threadIdx.x].store(workspace + 2 * blockIdx.y * last_dim + idx, last_dim - idx);
-				d_mu[threadIdx.x].store(workspace + (2 * blockIdx.y + 1) * last_dim + idx, last_dim - idx);
+				Number<T> tmp_sigma = (Number<T> ) d_sigma[threadIdx.x];
+				Number<T> tmp_mu = (Number<T> ) d_mu[threadIdx.x];
+				tmp_sigma.store(workspace + 2 * blockIdx.y * last_dim + idx, last_dim - idx);
+				tmp_mu.store(workspace + (2 * blockIdx.y + 1) * last_dim + idx, last_dim - idx);
 			}
 		}
 	}
 	template<typename T>
 	__global__ void kernel_batchnorm_backward_delta_2(T* scaleUpdate, T* biasUpdate, T alpha, T beta, T *workspace, uint32_t first_dim, uint32_t last_dim)
 	{
-		__shared__ T d_sigma[32 * 32];
-		__shared__ T d_mu[32 * 32];
+		assert(blockDim.x == 32);
+		assert(blockDim.y == 32);
+		__shared__ ReduceAdd<T> d_sigma[32 * 32];
+		__shared__ ReduceAdd<T> d_mu[32 * 32];
 		for (uint32_t j = length<T>() * blockIdx.x * blockDim.x; j < last_dim; j += length<T>() * blockDim.x * gridDim.x)
 		{
-			uint32_t idx = j + threadIdx.x;
+			uint32_t idx = j + length<T>() * threadIdx.x;
 
-			T acc_sigma = scalar_zero<T>();
-			T acc_mu = scalar_zero<T>();
+			ReduceAdd<T> acc_sigma;
+			ReduceAdd<T> acc_mu;
+			acc_sigma.init();
+			acc_mu.init();
 			if (idx < last_dim)
 			{
 				for (uint32_t i = blockIdx.y * blockDim.y + threadIdx.y; i < first_dim; i += blockDim.y * gridDim.y)
 				{
-					acc_sigma += workspace[2 * i * last_dim + idx];
-					acc_mu += workspace[(2 * i + 1) * last_dim + idx];
+					Number<T> tmp_sigma(workspace + 2 * i * last_dim + idx, last_dim - idx);
+					Number<T> tmp_mu(workspace + (2 * i + 1) * last_dim + idx, last_dim - idx);
+					acc_sigma.combine_partial(tmp_sigma);
+					acc_mu.combine_partial(tmp_mu);
 				}
 			}
 			d_sigma[threadIdx.y * 32 + threadIdx.x] = acc_sigma;
 			d_mu[threadIdx.y * 32 + threadIdx.x] = acc_mu;
 
 			__syncthreads();
-			block_reduce(d_sigma);
-			block_reduce(d_mu);
+			block_broadcasted_reduction(d_sigma);
+			block_broadcasted_reduction(d_mu);
 			if (threadIdx.y == 0 and idx < last_dim)
 			{
-				workspace[idx] = d_sigma[threadIdx.x];
-				workspace[last_dim + idx] = d_mu[threadIdx.x];
+				Number<T> tmp_sigma = (Number<T> ) d_sigma[threadIdx.x];
+				Number<T> tmp_mu = (Number<T> ) d_mu[threadIdx.x];
+				tmp_sigma.store(workspace + idx, last_dim - idx);
+				tmp_mu.store(workspace + idx + last_dim, last_dim - idx);
 
-				T tmp_sigma = alpha * d_sigma[threadIdx.x];
-				T tmp_mu = alpha * d_mu[threadIdx.x];
+				tmp_sigma *= Number<T>(alpha);
+				tmp_mu *= Number<T>(alpha);
 				if (beta != scalar_zero<T>())
 				{
-					tmp_sigma += beta * scaleUpdate[idx];
-					tmp_mu += beta * biasUpdate[idx];
+					tmp_sigma += Number<T>(beta) * Number<T>(scaleUpdate + idx, last_dim - idx);
+					tmp_mu += Number<T>(beta) * Number<T>(biasUpdate + idx, last_dim - idx);
 				}
-				scaleUpdate[idx] = tmp_sigma;
-				biasUpdate[idx] = tmp_mu;
+				tmp_sigma.store(scaleUpdate + idx, last_dim - idx);
+				tmp_mu.store(biasUpdate + idx, last_dim - idx);
 			}
 		}
 	}

@@ -22,38 +22,6 @@ namespace
 {
 	using namespace avocado::backend;
 
-	struct TensorShape
-	{
-		int batch, height, width, filters;
-
-		__device__ int offset_at(int b, int h, int w, int f) const noexcept
-		{
-			assert(b >= 0 && b < batch);
-			assert(h >= 0 && h < height);
-			assert(w >= 0 && w < width);
-			assert(f >= 0 && f < filters);
-			return ((b * height + h) * width + w) * filters + f;
-		}
-		template<int TileSize>
-		__device__ int tile_index(int b, int h, int w) const noexcept
-		{
-			assert(b >= 0 && b < batch);
-			assert(h >= 0 && h < tiles_vertically<TileSize>());
-			assert(w >= 0 && w < tiles_horizontally<TileSize>());
-			return (b * tiles_vertically<TileSize>() + h) * tiles_horizontally<TileSize>() + w;
-		}
-		template<int TileSize>
-		__device__ int tiles_vertically() const noexcept
-		{
-			return (height + TileSize - 1) / TileSize;
-		}
-		template<int TileSize>
-		__device__ int tiles_horizontally() const noexcept
-		{
-			return (width + TileSize - 1) / TileSize;
-		}
-	};
-
 	template<typename T, int Rows, int Columns = Rows>
 	struct Tile
 	{
@@ -807,7 +775,7 @@ namespace
 
 	TensorShape get_tensor_shape(const cuda::TensorDescriptor &desc)
 	{
-		return TensorShape( { desc.dimension(0), desc.dimension(1), desc.dimension(2), desc.dimension(3) });
+		return TensorShape(desc);
 	}
 }
 

@@ -160,6 +160,31 @@ namespace numbers
 		return tanf(x);
 	}
 
+	DEVICE_INLINE double horizontal_add(Number<double> x)
+	{
+		return static_cast<double>(x);
+	}
+	DEVICE_INLINE double horizontal_mul(Number<double> x)
+	{
+		return static_cast<double>(x);
+	}
+	DEVICE_INLINE double horizontal_max(Number<double> x)
+	{
+		return static_cast<double>(x);
+	}
+	DEVICE_INLINE double horizontal_min(Number<double> x)
+	{
+		return static_cast<double>(x);
+	}
+	DEVICE_INLINE double horizontal_or(Number<double> x)
+	{
+		return static_cast<double>(x);
+	}
+	DEVICE_INLINE double horizontal_and(Number<double> x)
+	{
+		return static_cast<double>(x);
+	}
+
 } /* namespace numbers */
 
 #endif /* FP64_NUMBER_CUH_ */
