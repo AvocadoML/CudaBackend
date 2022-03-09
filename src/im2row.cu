@@ -18,53 +18,49 @@
 
 namespace
 {
-	int get_block_size(int size)
+	__device__ int remainder(int &number, int divisor)
 	{
-		int tmp[] = { 1, 2, 4 };
-		int result = 1;
-		for (int i = 0; i < 3; i++)
-			if (size % tmp[i] == 0)
-				result = std::max(result, tmp[i]);
+		int tmp = number / divisor;
+		int result = number - divisor * tmp;
+		number = tmp;
 		return result;
 	}
 
 	template<typename T>
 	__launch_bounds__(256, 8)
-	__global__ void kernel_im2row(const T *input, T *matrix, uint4 input_shape, unsigned int kernel_size, bool invert)
+	__global__ void kernel_im2row_conv2d(const T *input, TensorShape inputShape, T *matrix, TensorShape outputShape, int2 kernelSize, int2 padding, bool invert,
+			T paddingValue)
 	{
-		unsigned int input_height = input_shape.y + kernel_size - 1;
-		unsigned int input_width = input_shape.z + kernel_size - 1;
-		unsigned int filters = input_shape.w;
+		int ext_input_height = inputShape.height - 2 * padding.x;
+		int ext_input_width = inputShape.width - 2 * padding.y;
 
-		unsigned int volume = input_shape.x * input_height * input_width * filters;
-		for (unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x; tid < volume; tid += gridDim.x * blockDim.x)
+		int volume = inputShape.batch * ext_input_height * ext_input_width * inputShape.filters;
+		for (int tid = blockIdx.x * blockDim.x + threadIdx.x; tid < volume; tid += gridDim.x * blockDim.x)
 		{
-			int in_f = tid;
-			int in_b = in_f / (input_height * input_width * filters);
-			in_f -= in_b * input_height * input_width * filters;
-			int in_h = in_f / (input_width * filters);
-			in_f -= in_h * input_width * filters;
-			int in_w = in_f / filters;
-			in_f -= in_w * filters;
+			int tmp = tid;
+			int in_f = remainder(tmp, inputShape.filters);
+			int in_w = remainder(tmp, ext_input_width) + padding.y;
+			int in_h = remainder(tmp, ext_input_height) + padding.x;
+			int in_b = remainder(tmp, inputShape.batch);
 
-			in_h = in_h - kernel_size / 2;
-			in_w = in_w - kernel_size / 2;
+			T value = paddingValue;
+			if (in_h >= 0 and in_h < inputShape.height and in_w >= 0 and in_w < inputShape.width)
+				value = input[inputShape.offset_at(in_b, in_h, in_w, in_f)];
 
-			T loaded = scalar_zero<T>();
-			int idx = ((in_b * input_shape.y + in_h) * input_shape.z + in_w) * filters + in_f;
-			if (in_h >= 0 && in_h < input_shape.y && in_w >= 0 && in_w < input_shape.z)
-				loaded = input[idx];
-
-			for (int i = 0; i < kernel_size; i++)
-				for (int j = 0; j < kernel_size; j++)
+			for (int i = 0; i < kernelSize.x; i++)
+				for (int j = 0; j < kernelSize.y; j++)
 				{
-					int x = in_h + i - kernel_size / 2;
-					int y = in_w + j - kernel_size / 2;
-					int offset = i * kernel_size + j;
+					int x = in_h + i - kernelSize.x / 2;
+					int y = in_w + j - kernelSize.y / 2;
+					int offset = i * kernelSize.y + j;
 					if (invert == false)
-						offset = (kernel_size * kernel_size - 1) - offset;
-					if (x >= 0 && x < input_shape.y && y >= 0 && y < input_shape.z)
-						matrix[(((in_b * input_shape.y + x) * input_shape.z + y) * kernel_size * kernel_size + offset) * filters + in_f] = loaded;
+						offset = (kernelSize.x * kernelSize.y - 1) - offset;
+					if (x >= 0 and x < outputShape.height and y >= 0 and y < outputShape.width)
+					{
+						int tile_idx = in_b * outputShape.height * outputShape.width + x * outputShape.width + y;
+						int asdf = (tile_idx * kernelSize.x * kernelSize.y + offset) * inputShape.filters + in_f;
+						matrix[asdf] = value;
+					}
 				}
 		}
 	}
@@ -83,32 +79,41 @@ namespace avocado
 		}
 
 		avStatus_t cudaIm2Row(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
-				const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t colDesc, avMemoryDescriptor_t colMem)
+				const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t rowDesc, avMemoryDescriptor_t rowMem)
 		{
 			cuda::getContext(context).setDevice();
-//			int last_dim = lastDim(input) * dataTypeSize(input->dtype);
-//			int4 input_shape { getDim(input, 0), getDim(input, 1), getDim(input, 2), last_dim };
-//			dim3 blockSize(256);
-//			dim3 gridSize(std::min(2048, (volume(input) + 255) / 256));
-//
-//#define KERNEL_LAUNCH(type)\
-//				input_shape.w /= sizeof(type);\
-//				gpu_conv2D_receptive_fields<type> <<<gridSize, blockSize, 0, getStream(context)>>>( data<type>(input), data<type>(output), input_shape, kernel_height, invert);\
-//				break;
-//
-//			switch (get_block_size(last_dim))
-//			{
-//				default:
-//				case 1:
-//					KERNEL_LAUNCH(char)
-//				case 2:
-//					KERNEL_LAUNCH(short)
-//				case 4:
-//					KERNEL_LAUNCH(int)
-//			}
-//#undef KERNEL_LAUNCH
-//			return cudaGetLastError();
-//			return AVOCADO_STATUS_NOT_SUPPORTED;
+			const bool invert = (cuda::getConvolution(config).mode == AVOCADO_CROSS_CORRELATION_MODE);
+			TensorShape input_shape(cuda::getTensor(srcDesc));
+			TensorShape output_shape(cuda::getConvolution(config).getOutputShape(cuda::getTensor(srcDesc), cuda::getTensor(filterDesc)));
+
+			const int2 kernel_size = { cuda::getTensor(filterDesc).dimension(1), cuda::getTensor(filterDesc).dimension(2) };
+			const int2 padding = { cuda::getConvolution(config).padding[0], cuda::getConvolution(config).padding[1] };
+
+			dim3 blockSize(256);
+			dim3 gridSize(std::min(2048, (cuda::getTensor(srcDesc).volume() + 255) / 256));
+			cudaStream_t stream = cuda::getContext(context).getStream();
+
+#define KERNEL_LAUNCH(type)\
+				{type padding_value = cuda::getConvolution(config).getPaddingValue<type>();\
+				kernel_im2row_conv2d<<<gridSize, blockSize, 0, stream>>>(cuda::getPointer<type>(srcMem), input_shape, cuda::getPointer<type>(rowMem), output_shape, kernel_size, padding, invert, padding_value);\
+				break;}
+
+			switch (cuda::dataTypeSize(cuda::getTensor(srcDesc).dtype()))
+			{
+				default:
+				case 1:
+					KERNEL_LAUNCH(char)
+				case 2:
+					KERNEL_LAUNCH(short)
+				case 4:
+					KERNEL_LAUNCH(int)
+				case 8:
+					KERNEL_LAUNCH(int2)
+				case 16:
+					KERNEL_LAUNCH(int4)
+			}
+#undef KERNEL_LAUNCH
+			return checkForErrors();
 		}
 
 	} /* namespace backend */

@@ -13,29 +13,34 @@ namespace avocado
 {
 	namespace backend
 	{
-//		TEST(TestIm2Row2D, no_padding_no_stride_no_dilation)
-//		{
-//			if (not supportsType(0, AVOCADO_DTYPE_INT32))
-//				GTEST_SKIP();
-//			Im2rowTest data(0, { 12, 23, 34, 45 }, { 11, 3, 3, 45 }, AVOCADO_DTYPE_INT32);
-//			uint32_t padding[4] = { 0, 0, 0, 0 };
-//			data.set(AVOCADO_CONVOLUTION_MODE, { 0, 0, 0 }, { 1, 1, 0 }, { 1, 1, 0 }, 1, padding);
-//			EXPECT_LE(data.getDifference(), 1.0e-6);
-//		}
+		TEST(TestIm2Row2D, filter3x3)
+		{
+			Im2rowTest data( { 12, 23, 34, 45 }, { 11, 3, 3, 45 }, AVOCADO_DTYPE_FLOAT32);
+			uint32_t padding[4] = { 0, 0, 0, 0 };
+			data.set(AVOCADO_CONVOLUTION_MODE, { -1, -1, 0 }, { 1, 1, 0 }, { 1, 1, 0 }, 1, padding);
+			EXPECT_LE(data.getDifference(), 1.0e-6);
+		}
+		TEST(TestIm2Row2D, filter5x5)
+		{
+			Im2rowTest data( { 12, 23, 34, 45 }, { 11, 5, 5, 45 }, AVOCADO_DTYPE_FLOAT32);
+			uint32_t padding[4] = { 0, 0, 0, 0 };
+			data.set(AVOCADO_CONVOLUTION_MODE, { -2, -2, 0 }, { 1, 1, 0 }, { 1, 1, 0 }, 1, padding);
+			EXPECT_LE(data.getDifference(), 1.0e-6);
+		}
 //		TEST(TestIm2Row2D, padding_no_stride_no_dilation)
 //		{
-//			if (not supportsType(0, AVOCADO_DTYPE_INT32))
+//			if (not supportsType(AVOCADO_DTYPE_INT32))
 //				GTEST_SKIP();
-//			Im2rowTest data(0, { 12, 23, 34, 45 }, { 11, 3, 3, 45 }, AVOCADO_DTYPE_INT32);
+//			Im2rowTest data( { 12, 23, 34, 45 }, { 11, 3, 3, 45 }, AVOCADO_DTYPE_INT32);
 //			uint32_t padding[4] = { 0, 0, 0, 0 };
 //			data.set(AVOCADO_CONVOLUTION_MODE, { -1, -2, 0 }, { 1, 1, 0 }, { 1, 1, 0 }, 1, padding);
 //			EXPECT_LE(data.getDifference(), 1.0e-6);
 //		}
 //		TEST(TestIm2Row2D, no_padding_stride_no_dilation)
 //		{
-//			if (not supportsType(0, AVOCADO_DTYPE_INT32))
+//			if (not supportsType(AVOCADO_DTYPE_INT32))
 //				GTEST_SKIP();
-//			Im2rowTest data(0, { 12, 23, 34, 45 }, { 11, 3, 3, 45 }, AVOCADO_DTYPE_INT32);
+//			Im2rowTest data( { 12, 23, 34, 45 }, { 11, 3, 3, 45 }, AVOCADO_DTYPE_INT32);
 //			uint32_t padding[4] = { 0, 0, 0, 0 };
 //			data.set(AVOCADO_CONVOLUTION_MODE, { 0, 0, 0 }, { 2, 2, 0 }, { 1, 1, 0 }, 1, padding);
 //			EXPECT_LE(data.getDifference(), 1.0e-6);
