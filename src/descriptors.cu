@@ -60,6 +60,8 @@ namespace avocado
 		}
 		avStatus_t cudaDestroyMemoryDescriptor(avMemoryDescriptor_t desc)
 		{
+			if (desc == AVOCADO_NULL_DESCRIPTOR)
+				return AVOCADO_STATUS_BAD_PARAM;
 			return cuda::destroy<cuda::MemoryDescriptor>(desc);
 		}
 		avStatus_t cudaSetMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, av_int64 dstSize, const void *pattern,
@@ -203,6 +205,8 @@ namespace avocado
 		}
 		avStatus_t cudaDestroyContextDescriptor(avContextDescriptor_t desc)
 		{
+			if (desc == AVOCADO_NULL_DESCRIPTOR)
+				return AVOCADO_STATUS_BAD_PARAM;
 			if (isDefault(desc))
 				return AVOCADO_STATUS_BAD_PARAM;
 			return cuda::destroy<cuda::ContextDescriptor>(desc);
@@ -261,6 +265,8 @@ namespace avocado
 		}
 		avStatus_t cudaDestroyTensorDescriptor(avTensorDescriptor_t desc)
 		{
+			if (desc == AVOCADO_NULL_DESCRIPTOR)
+				return AVOCADO_STATUS_BAD_PARAM;
 			return cuda::destroy<cuda::TensorDescriptor>(desc);
 		}
 		avStatus_t cudaSetTensorDescriptor(avTensorDescriptor_t desc, avDataType_t dtype, int nbDims, const int dimensions[])
@@ -297,6 +303,8 @@ namespace avocado
 		}
 		avStatus_t cudaDestroyConvolutionDescriptor(avConvolutionDescriptor_t desc)
 		{
+			if (desc == AVOCADO_NULL_DESCRIPTOR)
+				return AVOCADO_STATUS_BAD_PARAM;
 			return cuda::destroy<cuda::ConvolutionDescriptor>(desc);
 		}
 		avStatus_t cudaSetConvolutionDescriptor(avConvolutionDescriptor_t desc, avConvolutionMode_t mode, int nbDims, const int padding[], const int strides[],
@@ -330,6 +338,8 @@ namespace avocado
 		}
 		avStatus_t cudaDestroyOptimizerDescriptor(avOptimizerDescriptor_t desc)
 		{
+			if (desc == AVOCADO_NULL_DESCRIPTOR)
+				return AVOCADO_STATUS_BAD_PARAM;
 			return cuda::destroy<cuda::OptimizerDescriptor>(desc);
 		}
 		avStatus_t cudaSetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t type, double learningRate, const double coefficients[],
