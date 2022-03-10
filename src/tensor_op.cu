@@ -140,6 +140,50 @@ namespace
 		}
 	}
 
+	template<typename T, typename U = T>
+	__global__ void kernel_add_tensors_linear(T *dst, const T *src, U alpha, U beta, uint32_t elements)
+	{
+		numbers::Number<T> _alpha(alpha);
+		numbers::Number<T> _beta(beta);
+		for (uint32_t i = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); i < elements; i += numbers::length<T>() * gridDim.x * blockDim.x)
+		{
+			numbers::Number<T> tmp = _alpha * numbers::Number<T>(src + i, elements - i);
+			if (_beta != numbers::zero<T>())
+				tmp += _beta * numbers::Number<T>(dst + i, elements - i);
+			tmp.store(dst + i, elements - i);
+		}
+	}
+	template<typename T, typename U>
+	__global__ void kernel_add_tensors_broadcasted(T *dst, const T *src, U alpha, U beta, uint32_t first_dim, uint32_t last_dim)
+	{
+		numbers::Number<T> _alpha(alpha);
+		numbers::Number<T> _beta(beta);
+		for (uint32_t i = blockIdx.y; i < first_dim; i += gridDim.y)
+			for (uint32_t j = numbers::length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); j < last_dim; j += numbers::length<T>() * blockDim.x * gridDim.x)
+			{
+				numbers::Number<T> tmp = _alpha * numbers::Number<T>(src + i * last_dim + j, last_dim - j);
+				if (_beta != numbers::zero<T>())
+					tmp += _beta * numbers::Number<T>(dst + i * last_dim + j, last_dim - j);
+				tmp.store(dst + i * last_dim + j, last_dim - j);
+			}
+	}
+	template<typename T, typename U>
+	void helper_add_tensors(cudaStream_t stream, T *dst, const T *src, U alpha, U beta, cuda::BroadcastedDimensions dims)
+	{
+		if (dims.first == 1)
+		{
+			dim3 blockDim(256);
+			dim3 gridDim(gridSize<1024>(dims.last, blockDim.x));
+			kernel_add_tensors_linear<<<gridDim, blockDim, 0, stream>>>(dst, src, alpha, beta, dims.last);
+		}
+		else
+		{
+			dim3 blockDim(256);
+			dim3 gridDim(gridSize<1024>(dims.first, 1), gridSize<1024>(dims.last, blockDim.x));
+			kernel_add_tensors_broadcasted<<<gridDim, blockDim, 0, stream>>>(dst, src, alpha, beta, dims.first, dims.last);
+		}
+	}
+
 	template<typename T>
 	__global__ void kernel_add_to_tensor(T *dst, const T *src, T value, uint32_t elements)
 	{
@@ -394,6 +438,58 @@ namespace avocado
 //					break;
 //				case AVOCADO_DTYPE_COMPLEX64:
 //					kernel_add_to_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<uint8_t>(cMem), cuda::getScalarValue<uint8_t>(scalar), elements);
+//					break;
+				default:
+					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
+			}
+			return checkForErrors();
+		}
+
+		avStatus_t cudaAddTensors(avContextDescriptor_t context, const void *alpha, const avTensorDescriptor_t aDesc, const avMemoryDescriptor_t aMem,
+				const void *beta, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem)
+		{
+			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(aDesc), cuda::getTensor(cDesc));
+			cudaStream_t stream = cuda::getContext(context).getStream();
+			cuda::getContext(context).setDevice();
+
+			switch (cuda::getTensor(cDesc).dtype())
+			{
+//				case AVOCADO_DTYPE_UINT8:
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<uint8_t>(cMem), cuda::getAlphaValue(alpha), elements);
+//					break;
+//				case AVOCADO_DTYPE_INT8:
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int8_t>(cMem), cuda::getAlphaValue(alpha), elements);
+//					break;
+//				case AVOCADO_DTYPE_INT16:
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int16_t>(cMem), cuda::getAlphaValue(alpha), elements);
+//					break;
+//				case AVOCADO_DTYPE_INT32:
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int32_t>(cMem), cuda::getAlphaValue(alpha), elements);
+//					break;
+//				case AVOCADO_DTYPE_INT64:
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<int64_t>(cMem), cuda::getAlphaValue(alpha), elements);
+//					break;
+				case AVOCADO_DTYPE_FLOAT16:
+					helper_add_tensors(stream, cuda::getPointer<float16>(cMem), cuda::getPointer<float16>(aMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), dimensions);
+					break;
+				case AVOCADO_DTYPE_BFLOAT16:
+					helper_add_tensors(stream, cuda::getPointer<bfloat16>(cMem), cuda::getPointer<bfloat16>(aMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), dimensions);
+					break;
+				case AVOCADO_DTYPE_FLOAT32:
+					helper_add_tensors(stream, cuda::getPointer<float>(cMem), cuda::getPointer<float>(aMem), cuda::getAlphaValue(alpha),
+							cuda::getBetaValue(beta), dimensions);
+					break;
+				case AVOCADO_DTYPE_FLOAT64:
+					helper_add_tensors(stream, cuda::getPointer<double>(cMem), cuda::getPointer<double>(aMem), cuda::getAlphaValue<double>(alpha),
+							cuda::getBetaValue<double>(beta), dimensions);
+					break;
+//				case AVOCADO_DTYPE_COMPLEX32:
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<cuComplex>(cMem), cuda::getAlphaValue(alpha), elements);
+//					break;
+//				case AVOCADO_DTYPE_COMPLEX64:
+//					kernel_scale_tensor<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<uint8_t>(cMem), cuda::getAlphaValue(alpha), elements);
 //					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;

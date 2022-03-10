@@ -22,21 +22,21 @@ namespace avocado
 	{
 		TEST_P(TestConcatSplitTranspose, concat)
 		{
-			if (not supportsType( GetParam()))
+			if (not supportsType(GetParam()))
 				GTEST_SKIP();
 			ConcatTester data( { 23, 45 }, GetParam());
 			EXPECT_LT(data.getDifference(), 1.0e-4);
 		}
 		TEST_P(TestConcatSplitTranspose, split)
 		{
-			if (not supportsType( GetParam()))
+			if (not supportsType(GetParam()))
 				GTEST_SKIP();
 			SplitTester data( { 23, 45 }, GetParam());
 			EXPECT_LT(data.getDifference(), 1.0e-4);
 		}
 		TEST_P(TestConcatSplitTranspose, transpose)
 		{
-			if (not supportsType( GetParam()))
+			if (not supportsType(GetParam()))
 				GTEST_SKIP();
 			TransposeTester data( { 23, 45, 67 }, GetParam());
 			EXPECT_LT(data.getDifference( { 2, 0, 1 }), 1.0e-4);
@@ -109,6 +109,43 @@ namespace avocado
 			AddScalarTester data( { 23, 45, 67 }, AVOCADO_DTYPE_FLOAT64);
 			double scalar = 1.1;
 			EXPECT_LT(data.getDifference(&scalar), 1.0e-4);
+		}
+
+		TEST(TestTensorOp, float16_add_tensors)
+		{
+			if (not supportsType(AVOCADO_DTYPE_FLOAT16))
+				GTEST_SKIP();
+			AddTensorsTester data( { 23, 45, 67 }, AVOCADO_DTYPE_FLOAT16);
+			float alpha = 1.1f;
+			float beta = 0.1f;
+			EXPECT_LT(data.getDifference(&alpha, &beta), 1.0e-3);
+		}
+		TEST(TestTensorOp, bfloat16_add_tensors)
+		{
+			if (not supportsType(AVOCADO_DTYPE_BFLOAT16))
+				GTEST_SKIP();
+			AddTensorsTester data( { 23, 45, 67 }, AVOCADO_DTYPE_BFLOAT16);
+			float alpha = 1.1f;
+			float beta = 0.1f;
+			EXPECT_LT(data.getDifference(&alpha, &beta), 1.0e-2);
+		}
+		TEST(TestTensorOp, float32_add_tensors)
+		{
+			if (not supportsType(AVOCADO_DTYPE_FLOAT32))
+				GTEST_SKIP();
+			AddTensorsTester data( { 12, 13 }, AVOCADO_DTYPE_FLOAT32);
+			float alpha = 1.1f;
+			float beta = 0.1f;
+			EXPECT_LT(data.getDifference(&alpha, &beta), 1.0e-4);
+		}
+		TEST(TestTensorOp, float64_add_tensors)
+		{
+			if (not supportsType(AVOCADO_DTYPE_FLOAT64))
+				GTEST_SKIP();
+			AddTensorsTester data( { 23, 45, 67 }, AVOCADO_DTYPE_FLOAT64);
+			double alpha = 1.1;
+			double beta = 0.1;
+			EXPECT_LT(data.getDifference(&alpha, &beta), 1.0e-4);
 		}
 
 		TEST(TestTensorOp, float16_add_bias)
