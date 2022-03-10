@@ -33,8 +33,8 @@ namespace
 		Number<T> _beta(beta);
 		for (uint32_t j = length<T>() * (blockIdx.x * blockDim.x + threadIdx.x); j < last_dim; j += length<T>() * gridDim.x * blockDim.x)
 		{
-			Number<T> scale = (weight == nullptr) ? numbers::one<T>() : Number<T>(weight + j, last_dim - j);
-			Number<T> shift = (bias == nullptr) ? numbers::zero<T>() : Number<T>(bias + j, last_dim - j);
+			Number<T> scale(weight + j, last_dim - j);
+			Number<T> shift(bias + j, last_dim - j);
 			for (uint32_t i = blockIdx.y; i < first_dim; i += gridDim.y)
 			{
 				Number<T> src(input + i * last_dim + j, last_dim - j);

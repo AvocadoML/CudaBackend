@@ -30,8 +30,8 @@ namespace
 	}
 
 	template<typename T>
-	__global__ void kernel_learn_sgd(T *weight, const T *update, T *momentum, uint32_t elements, T learning_rate, T beta1, bool use_momentum, bool use_nesterov,
-			T alpha, T beta)
+	__global__ void kernel_learn_sgd(T *weight, const T *update, T *momentum, uint32_t elements, T learning_rate, T beta1, bool use_momentum,
+			bool use_nesterov, T alpha, T beta)
 	{
 		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
@@ -50,8 +50,8 @@ namespace
 		}
 	}
 	template<typename T>
-	__global__ void kernel_learn_adam(T *weight, const T *update, T *momentum, T *variance, uint32_t elements, T learning_rate, T beta1, T beta2, T alpha,
-			T beta)
+	__global__ void kernel_learn_adam(T *weight, const T *update, T *momentum, T *variance, uint32_t elements, T learning_rate, T beta1, T beta2,
+			T alpha, T beta)
 	{
 		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
@@ -63,7 +63,7 @@ namespace
 	}
 
 	avStatus_t launcher_sgd(const cuda::ContextDescriptor &context, const cuda::OptimizerDescriptor &config, const void *alpha, const void *beta,
-			const cuda::TensorDescriptor &wDesc, cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor& workspace)
+			const cuda::TensorDescriptor &wDesc, cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor &workspace)
 	{
 		const uint32_t elements = wDesc.volume();
 		const bool use_momentum = config.flags[0];
@@ -107,8 +107,8 @@ namespace
 		}
 		return checkForErrors();
 	}
-	avStatus_t launcher_adam(const cuda::ContextDescriptor & context, const cuda::OptimizerDescriptor& config, const void *alpha, const void *beta,
-			const cuda::TensorDescriptor & wDesc, cuda::MemoryDescriptor & wMem, const cuda::MemoryDescriptor & dwMem, cuda::MemoryDescriptor & workspace)
+	avStatus_t launcher_adam(const cuda::ContextDescriptor &context, cuda::OptimizerDescriptor &optimizer, const void *alpha, const void *beta,
+			const cuda::TensorDescriptor &wDesc, cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor &workspace)
 	{
 		const uint32_t elements = wDesc.volume();
 
@@ -119,28 +119,35 @@ namespace
 		dim3 gridDim = gridSize<1024>(elements, blockDim.x);
 		cudaStream_t stream = context.getStream();
 
+		const int64_t steps = optimizer.steps;
 		switch (wDesc.dtype())
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
 				const float _alpha = cuda::getAlphaValue(alpha);
 				const float _beta = cuda::getBetaValue(beta);
-				const float beta1 = config.coef[0];
-				const float beta2 = config.coef[1];
-				const float learning_rate = config.learning_rate;
+				const float beta1 = optimizer.coef[0];
+				const float beta2 = optimizer.coef[1];
+				float learning_rate = optimizer.learning_rate;
+				if (steps < 10000)
+					learning_rate *= std::sqrt(1.0f - std::pow(beta2, steps)) / (1.0f - std::pow(beta1, steps));
 				kernel_learn_adam<<<gridDim, blockDim, 0, stream>>>(wMem.data<float>(), dwMem.data<float>(), workspace.data<float>(),
 						workspace.data<float>() + elements, elements, learning_rate, beta1, beta2, _alpha, _beta);
+				optimizer.steps++;
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
 				const double _alpha = cuda::getAlphaValue<double>(alpha);
 				const double _beta = cuda::getBetaValue<double>(beta);
-				const double beta1 = config.coef[0];
-				const double beta2 = config.coef[1];
-				const double learning_rate = config.learning_rate;
+				const double beta1 = optimizer.coef[0];
+				const double beta2 = optimizer.coef[1];
+				double learning_rate = optimizer.learning_rate;
+				if (steps < 10000)
+					learning_rate *= std::sqrt(1.0 - std::pow(beta2, steps)) / (1.0 - std::pow(beta1, steps));
 				kernel_learn_adam<<<gridDim, blockDim, 0, stream>>>(wMem.data<double>(), dwMem.data<double>(), workspace.data<double>(),
 						workspace.data<double>() + elements, elements, learning_rate, beta1, beta2, _alpha, _beta);
+				optimizer.steps++;
 				break;
 			}
 			default:
@@ -154,18 +161,19 @@ namespace avocado
 {
 	namespace backend
 	{
-		avStatus_t cudaOptimizerLearn(avContextDescriptor_t context, const avOptimizerDescriptor_t config, const void *alpha, const avTensorDescriptor_t dwDesc,
-				const avTensorDescriptor_t dwMem, const void *beta, const avTensorDescriptor_t wDesc, avMemoryDescriptor_t wMem, avMemoryDescriptor_t workspace)
+		avStatus_t cudaOptimizerLearn(avContextDescriptor_t context, const avOptimizerDescriptor_t config, const void *alpha,
+				const avTensorDescriptor_t dwDesc, const avTensorDescriptor_t dwMem, const void *beta, const avTensorDescriptor_t wDesc,
+				avMemoryDescriptor_t wMem, avMemoryDescriptor_t workspace)
 		{
 			cuda::getContext(context).setDevice();
 			switch (cuda::getOptimizer(config).type)
 			{
 				case AVOCADO_OPTIMIZER_SGD:
-					return launcher_sgd(cuda::getContext(context), cuda::getOptimizer(config), alpha, beta, cuda::getTensor(wDesc), cuda::getMemory(wMem),
-							cuda::getMemory(dwMem), cuda::getMemory(workspace));
+					return launcher_sgd(cuda::getContext(context), cuda::getOptimizer(config), alpha, beta, cuda::getTensor(wDesc),
+							cuda::getMemory(wMem), cuda::getMemory(dwMem), cuda::getMemory(workspace));
 				case AVOCADO_OPTIMIZER_ADAM:
-					return launcher_adam(cuda::getContext(context), cuda::getOptimizer(config), alpha, beta, cuda::getTensor(wDesc), cuda::getMemory(wMem),
-							cuda::getMemory(dwMem), cuda::getMemory(workspace));
+					return launcher_adam(cuda::getContext(context), cuda::getOptimizer(config), alpha, beta, cuda::getTensor(wDesc),
+							cuda::getMemory(wMem), cuda::getMemory(dwMem), cuda::getMemory(workspace));
 				default:
 					return AVOCADO_STATUS_BAD_PARAM;
 			}

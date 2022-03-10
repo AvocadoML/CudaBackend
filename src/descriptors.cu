@@ -89,9 +89,11 @@ namespace avocado
 					case 1:
 						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int8_t>(dst) + dstOffset, dstSize, pattern);
 					case 2:
-						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int16_t>(dst) + dstOffset / 2, dstSize, pattern);
+						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int16_t>(dst) + dstOffset / 2, dstSize,
+								pattern);
 					case 4:
-						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int32_t>(dst) + dstOffset / 4, dstSize, pattern);
+						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int32_t>(dst) + dstOffset / 4, dstSize,
+								pattern);
 					case 8:
 						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int2>(dst) + dstOffset / 8, dstSize, pattern);
 					case 16:
@@ -160,7 +162,8 @@ namespace avocado
 			}
 			return convertStatus(status);
 		}
-		avStatus_t cudaCopyMemoryFromHost(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, const void *src, av_int64 bytes)
+		avStatus_t cudaCopyMemoryFromHost(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, const void *src,
+				av_int64 bytes)
 		{
 			if (src == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;
@@ -307,8 +310,8 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			return cuda::destroy<cuda::ConvolutionDescriptor>(desc);
 		}
-		avStatus_t cudaSetConvolutionDescriptor(avConvolutionDescriptor_t desc, avConvolutionMode_t mode, int nbDims, const int padding[], const int strides[],
-				const int dilation[], int groups, const void *paddingValue)
+		avStatus_t cudaSetConvolutionDescriptor(avConvolutionDescriptor_t desc, avConvolutionMode_t mode, int nbDims, const int padding[],
+				const int strides[], const int dilation[], int groups, const void *paddingValue)
 		{
 			try
 			{
@@ -342,23 +345,24 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			return cuda::destroy<cuda::OptimizerDescriptor>(desc);
 		}
-		avStatus_t cudaSetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t type, double learningRate, const double coefficients[],
-				const bool flags[])
+		avStatus_t cudaSetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t type, av_int64 steps, double learningRate,
+				const double coefficients[], const bool flags[])
 		{
 			try
 			{
-				cuda::getOptimizer(desc).set(type, learningRate, coefficients, flags);
+				cuda::getOptimizer(desc).set(type, steps, learningRate, coefficients, flags);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
 			}
 			return AVOCADO_STATUS_SUCCESS;
 		}
-		avStatus_t cudaGetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t *type, double *learningRate, double coefficients[], bool flags[])
+		avStatus_t cudaGetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t *type, av_int64 *steps, double *learningRate,
+				double coefficients[], bool flags[])
 		{
 			try
 			{
-				cuda::getOptimizer(desc).get(type, learningRate, coefficients, flags);
+				cuda::getOptimizer(desc).get(type, steps, learningRate, coefficients, flags);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
