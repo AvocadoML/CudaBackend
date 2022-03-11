@@ -18,7 +18,7 @@
 
 #define BF16_COMPUTE_MIN_ARCH 800
 
-#define FP16_COMPUTE_MIN_ARCH 530
+#define FP16_COMPUTE_MIN_ARCH 700
 #define FP16_STORAGE_MIN_ARCH 530
 
 namespace avocado

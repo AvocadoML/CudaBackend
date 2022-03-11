@@ -69,6 +69,13 @@ namespace avocado
 		{
 			if (not cuda::same_device_type(context, dst))
 				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
+			if (cuda::getPointer(dst) == nullptr)
+			{
+				if (dstSize != 0)
+					return AVOCADO_STATUS_BAD_PARAM;
+				else
+					return AVOCADO_STATUS_SUCCESS;
+			}
 			try
 			{
 				cuda::getContext(context).setDevice();
