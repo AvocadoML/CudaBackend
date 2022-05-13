@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
@@ -17,12 +17,13 @@
 
 #include <cassert>
 #include <iostream>
+#include <vector>
 #include <array>
 
 namespace
 {
 	using namespace avocado::backend;
-	using namespace avocado::backend::cuda;
+	using namespace avocado::backend::BACKEND_NAMESPACE;
 	using namespace numbers;
 
 	enum class TransformType
@@ -709,25 +710,25 @@ namespace
 //			if (status != AVOCADO_STATUS_SUCCESS)
 //				return status;
 //
-//			TensorShape tensor_shape = get_tensor_shape(cuda::getTensor(yDesc));
-//			MatrixShape<6> matrix_shape = get_matrix_shape < 6 > (cuda::getTensor(matricesDesc));
+//			TensorShape tensor_shape = get_tensor_shape(getTensor(yDesc));
+//			MatrixShape<6> matrix_shape = get_matrix_shape < 6 > (getTensor(matricesDesc));
 //
-//			int batch_size = cuda::getTensor(yDesc).dimension(0);
-//			int tile_h = (cuda::getTensor(yDesc).dimension(1) + 3) / 4;
-//			int tile_w = (cuda::getTensor(yDesc).dimension(2) + 3) / 4;
-//			int filters_in = cuda::getTensor(yDesc).dimension(3);
+//			int batch_size = getTensor(yDesc).dimension(0);
+//			int tile_h = (getTensor(yDesc).dimension(1) + 3) / 4;
+//			int tile_w = (getTensor(yDesc).dimension(2) + 3) / 4;
+//			int filters_in = getTensor(yDesc).dimension(3);
 //
-//			switch (cuda::getTensor(yDesc).dtype())
+//			switch (getTensor(yDesc).dtype())
 //			{
 //				case AVOCADO_DTYPE_FLOAT32:
 //				{
 //					dim3 blockDim(128, 4);
-//					float _alpha1 = cuda::getAlphaValue(alpha1);
-//					float _alpha2 = cuda::getAlphaValue(alpha2);
-//					float _beta = cuda::getBetaValue(beta);
+//					float _alpha1 = getAlphaValue(alpha1);
+//					float _alpha2 = getAlphaValue(alpha2);
+//					float _beta = getBetaValue(beta);
 //					kernel_winograd_output_transform<4, 3, 128, ActivationLinear<float>> <<<gridDim, blockDim, 6 * 6 * blockDim.x * sizeof(float), stream>>>(
-//							cuda::getPointer<float>(matricesMem), matrix_shape, cuda::getPointer<float>(yMem), tensor_shape, cuda::getPointer<float>(zMem),
-//							_alpha1, _alpha2, _beta, cuda::getPointer<float>(bMem));
+//							getPointer<float>(matricesMem), matrix_shape, getPointer<float>(yMem), tensor_shape, getPointer<float>(zMem),
+//							_alpha1, _alpha2, _beta, getPointer<float>(bMem));
 //				}
 //					break;
 //			}
@@ -875,6 +876,7 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
 
 		avStatus_t cudaWinogradWeightTransform(avContextDescriptor_t context, const avConvolutionDescriptor_t config, int transformSize,
 				const avTensorDescriptor_t wDesc, const avMemoryDescriptor_t wMem, const avTensorDescriptor_t matricesDesc, avMemoryDescriptor_t matricesMem)
@@ -883,20 +885,20 @@ namespace avocado
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			switch (cuda::getTensor(wDesc).dtype())
+			switch (getTensor(wDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT16:
-					return launch_weight_transform<float16>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getMemory(wMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_weight_transform<float16>(getContext(context), getConvolution(config), getTensor(wDesc), getMemory(wMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 				case AVOCADO_DTYPE_BFLOAT16:
-					return launch_weight_transform<bfloat16>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getMemory(wMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_weight_transform<bfloat16>(getContext(context), getConvolution(config), getTensor(wDesc), getMemory(wMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 				case AVOCADO_DTYPE_FLOAT32:
-					return launch_weight_transform<float>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getMemory(wMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_weight_transform<float>(getContext(context), getConvolution(config), getTensor(wDesc), getMemory(wMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 				case AVOCADO_DTYPE_FLOAT64:
-					return launch_weight_transform<double>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getMemory(wMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_weight_transform<double>(getContext(context), getConvolution(config), getTensor(wDesc), getMemory(wMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 			}
 			return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 		}
@@ -909,20 +911,20 @@ namespace avocado
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			switch (cuda::getTensor(wDesc).dtype())
+			switch (getTensor(wDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT16:
-					return launch_input_transform<float16>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getTensor(xDesc), cuda::getMemory(xMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_input_transform<float16>(getContext(context), getConvolution(config), getTensor(wDesc), getTensor(xDesc), getMemory(xMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 				case AVOCADO_DTYPE_BFLOAT16:
-					return launch_input_transform<bfloat16>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getTensor(xDesc), cuda::getMemory(xMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_input_transform<bfloat16>(getContext(context), getConvolution(config), getTensor(wDesc), getTensor(xDesc), getMemory(xMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 				case AVOCADO_DTYPE_FLOAT32:
-					return launch_input_transform<float>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getTensor(xDesc), cuda::getMemory(xMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_input_transform<float>(getContext(context), getConvolution(config), getTensor(wDesc), getTensor(xDesc), getMemory(xMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 				case AVOCADO_DTYPE_FLOAT64:
-					return launch_input_transform<double>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getTensor(xDesc), cuda::getMemory(xMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_input_transform<double>(getContext(context), getConvolution(config), getTensor(wDesc), getTensor(xDesc), getMemory(xMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 			}
 			return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 		}
@@ -936,28 +938,24 @@ namespace avocado
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			switch (cuda::getTensor(wDesc).dtype())
+			switch (getTensor(wDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT16:
-					return launch_output_transform<float16>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getAlphaValue(alpha1), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), cuda::getTensor(yDesc),
-							cuda::getMemory(yMem), cuda::getTensor(bDesc), cuda::getMemory(bMem), cuda::getAlphaValue(alpha2), cuda::getTensor(zDesc),
-							cuda::getMemory(zMem), cuda::getBetaValue(beta), activation, transformSize);
+					return launch_output_transform<float16>(getContext(context), getConvolution(config), getTensor(wDesc), getAlphaValue(alpha1),
+							getTensor(matricesDesc), getMemory(matricesMem), getTensor(yDesc), getMemory(yMem), getTensor(bDesc), getMemory(bMem),
+							getAlphaValue(alpha2), getTensor(zDesc), getMemory(zMem), getBetaValue(beta), activation, transformSize);
 				case AVOCADO_DTYPE_BFLOAT16:
-					return launch_output_transform<bfloat16>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getAlphaValue(alpha1), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), cuda::getTensor(yDesc),
-							cuda::getMemory(yMem), cuda::getTensor(bDesc), cuda::getMemory(bMem), cuda::getAlphaValue(alpha2), cuda::getTensor(zDesc),
-							cuda::getMemory(zMem), cuda::getBetaValue(beta), activation, transformSize);
+					return launch_output_transform<bfloat16>(getContext(context), getConvolution(config), getTensor(wDesc), getAlphaValue(alpha1),
+							getTensor(matricesDesc), getMemory(matricesMem), getTensor(yDesc), getMemory(yMem), getTensor(bDesc), getMemory(bMem),
+							getAlphaValue(alpha2), getTensor(zDesc), getMemory(zMem), getBetaValue(beta), activation, transformSize);
 				case AVOCADO_DTYPE_FLOAT32:
-					return launch_output_transform<float>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getAlphaValue(alpha1), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), cuda::getTensor(yDesc),
-							cuda::getMemory(yMem), cuda::getTensor(bDesc), cuda::getMemory(bMem), cuda::getAlphaValue(alpha2), cuda::getTensor(zDesc),
-							cuda::getMemory(zMem), cuda::getBetaValue(beta), activation, transformSize);
+					return launch_output_transform<float>(getContext(context), getConvolution(config), getTensor(wDesc), getAlphaValue(alpha1),
+							getTensor(matricesDesc), getMemory(matricesMem), getTensor(yDesc), getMemory(yMem), getTensor(bDesc), getMemory(bMem),
+							getAlphaValue(alpha2), getTensor(zDesc), getMemory(zMem), getBetaValue(beta), activation, transformSize);
 				case AVOCADO_DTYPE_FLOAT64:
-					return launch_output_transform<double>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getAlphaValue<double>(alpha1), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), cuda::getTensor(yDesc),
-							cuda::getMemory(yMem), cuda::getTensor(bDesc), cuda::getMemory(bMem), cuda::getAlphaValue<double>(alpha2), cuda::getTensor(zDesc),
-							cuda::getMemory(zMem), cuda::getBetaValue<double>(beta), activation, transformSize);
+					return launch_output_transform<double>(getContext(context), getConvolution(config), getTensor(wDesc), getAlphaValue<double>(alpha1),
+							getTensor(matricesDesc), getMemory(matricesMem), getTensor(yDesc), getMemory(yMem), getTensor(bDesc), getMemory(bMem),
+							getAlphaValue<double>(alpha2), getTensor(zDesc), getMemory(zMem), getBetaValue<double>(beta), activation, transformSize);
 			}
 			return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 		}
@@ -970,14 +968,14 @@ namespace avocado
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			switch (cuda::getTensor(wDesc).dtype())
+			switch (getTensor(wDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					return launch_gradient_transform<float>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getTensor(dyDesc), cuda::getMemory(dyMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_gradient_transform<float>(getContext(context), getConvolution(config), getTensor(wDesc), getTensor(dyDesc), getMemory(dyMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 				case AVOCADO_DTYPE_FLOAT64:
-					return launch_gradient_transform<double>(cuda::getContext(context), cuda::getConvolution(config), cuda::getTensor(wDesc),
-							cuda::getTensor(dyDesc), cuda::getMemory(dyMem), cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), transformSize);
+					return launch_gradient_transform<double>(getContext(context), getConvolution(config), getTensor(wDesc), getTensor(dyDesc), getMemory(dyMem),
+							getTensor(matricesDesc), getMemory(matricesMem), transformSize);
 			}
 			return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 		}
@@ -990,16 +988,14 @@ namespace avocado
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			switch (cuda::getTensor(dwDesc).dtype())
+			switch (getTensor(dwDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					return launch_update_transform<float>(cuda::getContext(context), cuda::getConvolution(config), cuda::getAlphaValue(alpha),
-							cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), cuda::getBetaValue(beta), cuda::getTensor(dwDesc),
-							cuda::getMemory(dwMem), transformSize);
+					return launch_update_transform<float>(getContext(context), getConvolution(config), getAlphaValue(alpha), getTensor(matricesDesc),
+							getMemory(matricesMem), getBetaValue(beta), getTensor(dwDesc), getMemory(dwMem), transformSize);
 				case AVOCADO_DTYPE_FLOAT64:
-					return launch_update_transform<double>(cuda::getContext(context), cuda::getConvolution(config), cuda::getAlphaValue<double>(alpha),
-							cuda::getTensor(matricesDesc), cuda::getMemory(matricesMem), cuda::getBetaValue<double>(beta), cuda::getTensor(dwDesc),
-							cuda::getMemory(dwMem), transformSize);
+					return launch_update_transform<double>(getContext(context), getConvolution(config), getAlphaValue<double>(alpha), getTensor(matricesDesc),
+							getMemory(matricesMem), getBetaValue<double>(beta), getTensor(dwDesc), getMemory(dwMem), transformSize);
 			}
 			return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 		}

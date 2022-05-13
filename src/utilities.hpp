@@ -11,8 +11,8 @@
 #include <cuda_runtime_api.h>
 #include <cublas_v2.h>
 #include <algorithm>
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 template<unsigned int maxBlocks>
 unsigned int gridSize(unsigned int problemSize, unsigned int blockSize) noexcept

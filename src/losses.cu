@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
@@ -20,6 +20,7 @@
 namespace
 {
 	using namespace avocado::backend;
+	using namespace avocado::backend::BACKEND_NAMESPACE;
 
 	/* Functors for calculating losses and gradients */
 	class MeanSquareError
@@ -127,13 +128,13 @@ namespace
 		}
 	}
 	template<typename T, class Function>
-	avStatus_t launch_reduce_op(cudaStream_t stream, const T *output, const T *target, cuda::MemoryDescriptor &workspace, int elements, Function fn) noexcept
+	avStatus_t launch_reduce_op(cudaStream_t stream, const T *output, const T *target, MemoryDescriptor &workspace, int elements, Function fn) noexcept
 	{
 		assert(output != nullptr);
 		assert(target != nullptr);
 		dim3 blockDim(1024);
 		const int partial_results = round_to_power_of_2(gridSize<1024>(elements, blockDim.x));
-		if (workspace.size() < sizeof(T) * partial_results)
+		if (workspace.sizeInBytes() < sizeof(T) * partial_results)
 			return AVOCADO_STATUS_INTERNAL_ERROR;
 
 		kernel_reduce_op_step1<T, Function> <<<partial_results, blockDim, 0, stream>>>(workspace.data<T>(), output, target, elements, fn);
@@ -174,24 +175,24 @@ namespace
 	void dispatch_loss(avContextDescriptor_t context, const avTensorDescriptor_t outputDesc, const avMemoryDescriptor_t outputMem,
 			const avMemoryDescriptor_t targetMem, void *result, Function fn) noexcept
 	{
-		const unsigned int elements = cuda::getTensor(outputDesc).volume();
-		const unsigned int batch_size = cuda::getTensor(outputDesc).firstDim();
-		cudaStream_t stream = cuda::getContext(context).getStream();
+		const unsigned int elements = getTensor(outputDesc).volume();
+		const unsigned int batch_size = getTensor(outputDesc).firstDim();
+		cudaStream_t stream = getContext(context).getStream();
 
-		switch (cuda::getTensor(outputDesc).dtype())
+		switch (getTensor(outputDesc).dtype())
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				avStatus_t status = launch_reduce_op(stream, cuda::getPointer<float>(outputMem), cuda::getPointer<float>(targetMem),
-						cuda::getContext(context).getWorkspace(), elements, fn);
-				cudaMemcpyAsync(result, cuda::getContext(context).getWorkspace().data<float>(), sizeof(float), cudaMemcpyDeviceToHost, stream);
+				avStatus_t status = launch_reduce_op(stream, getPointer<float>(outputMem), getPointer<float>(targetMem), getContext(context).getWorkspace(),
+						elements, fn);
+				cudaMemcpyAsync(result, getContext(context).getWorkspace().data<float>(), sizeof(float), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				avStatus_t status = launch_reduce_op(stream, cuda::getPointer<double>(outputMem), cuda::getPointer<double>(targetMem),
-						cuda::getContext(context).getWorkspace(), elements, fn);
-				cudaMemcpyAsync(result, cuda::getContext(context).getWorkspace().data<double>(), sizeof(double), cudaMemcpyDeviceToHost, stream);
+				avStatus_t status = launch_reduce_op(stream, getPointer<double>(outputMem), getPointer<double>(targetMem), getContext(context).getWorkspace(),
+						elements, fn);
+				cudaMemcpyAsync(result, getContext(context).getWorkspace().data<double>(), sizeof(double), cudaMemcpyDeviceToHost, stream);
 				break;
 			}
 		}
@@ -201,24 +202,24 @@ namespace
 	void dispatch_gradient(avContextDescriptor_t context, const void *alpha, const avTensorDescriptor_t outputDesc, const avMemoryDescriptor_t outputMem,
 			const avMemoryDescriptor_t targetMem, const void *beta, avMemoryDescriptor_t gradientMem, Function fn) noexcept
 	{
-		const unsigned int elements = cuda::getTensor(outputDesc).volume();
-		cudaStream_t stream = cuda::getContext(context).getStream();
+		const unsigned int elements = getTensor(outputDesc).volume();
+		cudaStream_t stream = getContext(context).getStream();
 
 		dim3 blockDim(256);
 		dim3 gridDim(gridSize<1024>(elements, blockDim.x));
 
-		switch (cuda::getTensor(outputDesc).dtype())
+		switch (getTensor(outputDesc).dtype())
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(gradientMem), cuda::getPointer<float>(outputMem),
-						cuda::getPointer<float>(targetMem), elements, cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), fn);
+				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(gradientMem), getPointer<float>(outputMem),
+						getPointer<float>(targetMem), elements, getAlphaValue(alpha), getBetaValue(beta), fn);
 				break;
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(gradientMem), cuda::getPointer<double>(outputMem),
-						cuda::getPointer<double>(targetMem), elements, cuda::getAlphaValue<double>(alpha), cuda::getBetaValue<double>(beta), fn);
+				kernel_pointwise_op<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(gradientMem), getPointer<double>(outputMem),
+						getPointer<double>(targetMem), elements, getAlphaValue<double>(alpha), getBetaValue<double>(beta), fn);
 				break;
 			}
 		}
@@ -230,11 +231,12 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
 
 		avStatus_t cudaLossFunction(avContextDescriptor_t context, avLossType_t lossType, const avTensorDescriptor_t outputDesc,
 				const avMemoryDescriptor_t outputMem, const avTensorDescriptor_t targetDesc, const avMemoryDescriptor_t targetMem, void *result)
 		{
-			cuda::getContext(context).setDevice();
+			getContext(context).setDevice();
 			switch (lossType)
 			{
 				case AVOCADO_MEAN_SQUARE_LOSS:
@@ -255,7 +257,7 @@ namespace avocado
 				const avMemoryDescriptor_t outputMem, const avTensorDescriptor_t targetDesc, const avMemoryDescriptor_t targetMem, const void *beta,
 				const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t gradientMem, bool isFused)
 		{
-			cuda::getContext(context).setDevice();
+			getContext(context).setDevice();
 			switch (lossType)
 			{
 				case AVOCADO_MEAN_SQUARE_LOSS:

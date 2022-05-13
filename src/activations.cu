@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "numbers/numbers.cuh"
 #include "activations.cuh"
@@ -154,30 +154,32 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
+
 		avStatus_t cudaActivationForward(avContextDescriptor_t context, avActivationType_t activation, const void *alpha, const avTensorDescriptor_t xDesc,
 				const avMemoryDescriptor_t xMem, const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem)
 		{
-			if (not cuda::same_device_type(context, xMem, yMem))
+			if (not same_device_type(context, xMem, yMem))
 				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
 
-			const unsigned int elements = cuda::getTensor(yDesc).volume();
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			const unsigned int elements = getTensor(yDesc).volume();
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
-			switch (cuda::getTensor(yDesc).dtype())
+			switch (getTensor(yDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT16:
-					return helper_act_forward(stream, cuda::getPointer<float16>(xMem), cuda::getPointer<float16>(yMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), elements, activation);
+					return helper_act_forward(stream, getPointer<float16>(xMem), getPointer<float16>(yMem), getAlphaValue(alpha), getBetaValue(beta), elements,
+							activation);
 				case AVOCADO_DTYPE_BFLOAT16:
-					return helper_act_forward(stream, cuda::getPointer<bfloat16>(xMem), cuda::getPointer<bfloat16>(yMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), elements, activation);
+					return helper_act_forward(stream, getPointer<bfloat16>(xMem), getPointer<bfloat16>(yMem), getAlphaValue(alpha), getBetaValue(beta),
+							elements, activation);
 				case AVOCADO_DTYPE_FLOAT32:
-					return helper_act_forward(stream, cuda::getPointer<float>(xMem), cuda::getPointer<float>(yMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), elements, activation);
+					return helper_act_forward(stream, getPointer<float>(xMem), getPointer<float>(yMem), getAlphaValue(alpha), getBetaValue(beta), elements,
+							activation);
 				case AVOCADO_DTYPE_FLOAT64:
-					return helper_act_forward(stream, cuda::getPointer<double>(xMem), cuda::getPointer<double>(yMem), cuda::getAlphaValue<double>(alpha),
-							cuda::getBetaValue<double>(beta), elements, activation);
+					return helper_act_forward(stream, getPointer<double>(xMem), getPointer<double>(yMem), getAlphaValue<double>(alpha),
+							getBetaValue<double>(beta), elements, activation);
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 			}
@@ -187,21 +189,21 @@ namespace avocado
 				const avMemoryDescriptor_t yMem, const avTensorDescriptor_t dyDesc, const avMemoryDescriptor_t dyMem, const void *beta,
 				const avTensorDescriptor_t dxDesc, avMemoryDescriptor_t dxMem)
 		{
-			if (not cuda::same_device_type(context, dxMem, dyMem, yMem))
+			if (not same_device_type(context, dxMem, dyMem, yMem))
 				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
 
-			const unsigned int elements = cuda::getTensor(yDesc).volume();
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			const unsigned int elements = getTensor(yDesc).volume();
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
-			switch (cuda::getTensor(yDesc).dtype())
+			switch (getTensor(yDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					return helper_act_backward(stream, cuda::getPointer<float>(dxMem), cuda::getPointer<float>(dyMem), cuda::getPointer<float>(yMem),
-							cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), elements, activation);
+					return helper_act_backward(stream, getPointer<float>(dxMem), getPointer<float>(dyMem), getPointer<float>(yMem), getAlphaValue(alpha),
+							getBetaValue(beta), elements, activation);
 				case AVOCADO_DTYPE_FLOAT64:
-					return helper_act_backward(stream, cuda::getPointer<double>(dxMem), cuda::getPointer<double>(dyMem), cuda::getPointer<double>(yMem),
-							cuda::getAlphaValue<double>(alpha), cuda::getBetaValue<double>(beta), elements, activation);
+					return helper_act_backward(stream, getPointer<double>(dxMem), getPointer<double>(dyMem), getPointer<double>(yMem),
+							getAlphaValue<double>(alpha), getBetaValue<double>(beta), elements, activation);
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 			}

@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "utilities.hpp"
 
@@ -19,17 +19,19 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
+
 		avStatus_t cudaDropoutForward(avContextDescriptor_t context, const avDropoutDescriptor_t config, const avTensorDescriptor_t xDesc,
 				const avMemoryDescriptor_t xMem, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem, avMemoryDescriptor_t states)
 		{
-			cuda::getContext(context).setDevice();
+			getContext(context).setDevice();
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}
 
 		avStatus_t cudaDropoutBackward(avContextDescriptor_t context, const avDropoutDescriptor_t config, const avTensorDescriptor_t dyDesc,
 				const avMemoryDescriptor_t dyMem, const avTensorDescriptor_t dxDesc, avMemoryDescriptor_t dxMem, const avTensorDescriptor_t states)
 		{
-			cuda::getContext(context).setDevice();
+			getContext(context).setDevice();
 			return AVOCADO_STATUS_NOT_SUPPORTED;
 		}
 	} /* namespace backend */

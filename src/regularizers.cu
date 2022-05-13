@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
@@ -61,47 +61,49 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
+
 		avStatus_t cudaRegularizerL2(avContextDescriptor_t context, const avTensorDescriptor_t gradientDesc, avMemoryDescriptor_t dwMem,
 				const avTensorDescriptor_t wDesc, const avMemoryDescriptor_t wMem, const void *scale, const void *offset, void *loss)
 		{
-			const unsigned int elements = cuda::getTensor(wDesc).volume();
+			const unsigned int elements = getTensor(wDesc).volume();
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<1024>(elements, blockDim.x));
 
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
-			switch (cuda::getTensor(wDesc).dtype())
+			switch (getTensor(wDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
-					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(dwMem), cuda::getPointer<float>(wMem),
-							cuda::getScalarValue<float>(scale), cuda::getScalarValue<float>(offset), elements);
+					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(dwMem), getPointer<float>(wMem), getScalarValue<float>(scale),
+							getScalarValue<float>(offset), elements);
 					if (loss != nullptr)
 					{
-						float *workspace = cuda::getContext(context).getWorkspace().data<float>();
+						float *workspace = getContext(context).getWorkspace().data<float>();
 						gridDim = dim3(gridSize<1024>(elements, 1024));
-						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, cuda::getPointer<float>(wMem),
-								cuda::getScalarValue<float>(scale), cuda::getScalarValue<float>(offset), elements);
+						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, getPointer<float>(wMem), getScalarValue<float>(scale),
+								getScalarValue<float>(offset), elements);
 						if (gridDim.x > 1)
 							kernel_calculate_l2_loss_step2<<<1, 1024, 0, stream>>>(workspace);
-						cudaMemcpyAsync(loss, workspace, sizeof(float), cudaMemcpyDeviceToHost, cuda::getContext(context).getStream());
+						cudaMemcpyAsync(loss, workspace, sizeof(float), cudaMemcpyDeviceToHost, getContext(context).getStream());
 					}
 					break;
 				}
 				case AVOCADO_DTYPE_FLOAT64:
 				{
-					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(dwMem), cuda::getPointer<double>(wMem),
-							cuda::getScalarValue<double>(scale), cuda::getScalarValue<double>(offset), elements);
+					kernel_regularizer_l2<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(dwMem), getPointer<double>(wMem), getScalarValue<double>(scale),
+							getScalarValue<double>(offset), elements);
 					if (loss != nullptr)
 					{
-						double *workspace = cuda::getContext(context).getWorkspace().data<double>();
+						double *workspace = getContext(context).getWorkspace().data<double>();
 						gridDim = dim3(gridSize<1024>(elements, 1024));
-						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, cuda::getPointer<double>(wMem),
-								cuda::getScalarValue<double>(scale), cuda::getScalarValue<double>(offset), elements);
+						kernel_calculate_l2_loss_step1<<<gridDim, 1024, 0, stream>>>(workspace, getPointer<double>(wMem), getScalarValue<double>(scale),
+								getScalarValue<double>(offset), elements);
 						if (gridDim.x > 1)
 							kernel_calculate_l2_loss_step2<<<1, 1024, 0, stream>>>(workspace);
-						cudaMemcpyAsync(loss, workspace, sizeof(double), cudaMemcpyDeviceToHost, cuda::getContext(context).getStream());
+						cudaMemcpyAsync(loss, workspace, sizeof(double), cudaMemcpyDeviceToHost, getContext(context).getStream());
 					}
 					break;
 				}

@@ -8,7 +8,7 @@
 #ifndef REDUCTION_UTILS_CUH_
 #define REDUCTION_UTILS_CUH_
 
-#include <backend_descriptors.hpp>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "numbers/numbers.cuh"
 
@@ -524,7 +524,7 @@ avocado::backend::avStatus_t launch_linear_reduction(cudaStream_t stream, T* out
 	assert(input != nullptr);
 	dim3 blockDim(1024);
 	const int partial_results = round_to_power_of_2(gridSize<1024>(elements, blockDim.x));
-	if (workspace.size() < sizeof(T) * partial_results)
+	if (workspace.sizeInBytes() < sizeof(T) * partial_results)
 		return avocado::backend::AVOCADO_STATUS_INTERNAL_ERROR;
 
 	kernel_linear_reduction_step1<Accumulator, T> <<<partial_results, blockDim, 0, stream>>>(workspace.data<T>(), input, elements);
@@ -623,7 +623,7 @@ avocado::backend::avStatus_t launch_broadcasted_reduction(cudaStream_t stream, T
 
 	int grid_dim_x = gridSize<32>(firstDim, blockDim.x);
 	int grid_dim_y = gridSize<128>(lastDim, blockDim.y);
-	if (workspace.size() < sizeof(T) * blockDim.x * grid_dim_x * grid_dim_y)
+	if (workspace.sizeInBytes() < sizeof(T) * blockDim.x * grid_dim_x * grid_dim_y)
 		return avocado::backend::AVOCADO_STATUS_INTERNAL_ERROR;
 
 	dim3 gridDim1(grid_dim_x, grid_dim_y);

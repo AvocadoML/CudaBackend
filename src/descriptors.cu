@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "utilities.hpp"
 
@@ -37,39 +37,32 @@ namespace
 		kernel_setall<<<gridDim, blockDim, 0, stream>>>(dst, length, v);
 		return checkForErrors();
 	}
-
-	bool isDefault(avContextDescriptor_t context)
-	{
-		auto idx = cuda::get_descriptor_index(context);
-		return 0 <= idx and idx < cudaGetNumberOfDevices();
-	}
 }
 
 namespace avocado
 {
 	namespace backend
 	{
+		using namespace avocado::backend::BACKEND_NAMESPACE;
 
 		avStatus_t cudaCreateMemoryDescriptor(avMemoryDescriptor_t *result, avDeviceIndex_t deviceIndex, av_int64 sizeInBytes)
 		{
-			return cuda::create<cuda::MemoryDescriptor>(result, deviceIndex, sizeInBytes);
+			return create_descriptor<MemoryDescriptor>(result, sizeInBytes, deviceIndex);
 		}
 		avStatus_t cudaCreateMemoryView(avMemoryDescriptor_t *result, const avMemoryDescriptor_t desc, av_int64 sizeInBytes, av_int64 offsetInBytes)
 		{
-			return cuda::create<cuda::MemoryDescriptor>(result, cuda::getMemory(desc), sizeInBytes, offsetInBytes);
+			return create_descriptor<MemoryDescriptor>(result, getMemory(desc), sizeInBytes, offsetInBytes);
 		}
 		avStatus_t cudaDestroyMemoryDescriptor(avMemoryDescriptor_t desc)
 		{
-			if (desc == AVOCADO_NULL_DESCRIPTOR)
-				return AVOCADO_STATUS_BAD_PARAM;
-			return cuda::destroy<cuda::MemoryDescriptor>(desc);
+			return destroy_descriptor<MemoryDescriptor>(desc);
 		}
 		avStatus_t cudaSetMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, av_int64 dstSize, const void *pattern,
 				av_int64 patternSize)
 		{
-			if (not cuda::same_device_type(context, dst))
+			if (not same_device_type(context, dst))
 				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
-			if (cuda::getPointer(dst) == nullptr)
+			if (getPointer(dst) == nullptr)
 			{
 				if (dstSize != 0)
 					return AVOCADO_STATUS_BAD_PARAM;
@@ -78,14 +71,14 @@ namespace avocado
 			}
 			try
 			{
-				cuda::getContext(context).setDevice();
+				getContext(context).setDevice();
 				if (pattern == nullptr)
 				{
 					cudaError_t status = cudaGetLastError();
 					if (isDefault(context))
-						status = cudaMemset(cuda::getPointer<int8_t>(dst) + dstOffset, 0, dstSize);
+						status = cudaMemset(getPointer<int8_t>(dst) + dstOffset, 0, dstSize);
 					else
-						status = cudaMemsetAsync(cuda::getPointer<int8_t>(dst) + dstOffset, 0, dstSize, cuda::getContext(context).getStream());
+						status = cudaMemsetAsync(getPointer<int8_t>(dst) + dstOffset, 0, dstSize, getContext(context).getStream());
 					return convertStatus(status);
 				}
 
@@ -94,17 +87,15 @@ namespace avocado
 				switch (patternSize)
 				{
 					case 1:
-						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int8_t>(dst) + dstOffset, dstSize, pattern);
+						return setall_launcher(getContext(context).getStream(), getPointer<int8_t>(dst) + dstOffset, dstSize, pattern);
 					case 2:
-						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int16_t>(dst) + dstOffset / 2, dstSize,
-								pattern);
+						return setall_launcher(getContext(context).getStream(), getPointer<int16_t>(dst) + dstOffset / 2, dstSize, pattern);
 					case 4:
-						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int32_t>(dst) + dstOffset / 4, dstSize,
-								pattern);
+						return setall_launcher(getContext(context).getStream(), getPointer<int32_t>(dst) + dstOffset / 4, dstSize, pattern);
 					case 8:
-						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int2>(dst) + dstOffset / 8, dstSize, pattern);
+						return setall_launcher(getContext(context).getStream(), getPointer<int2>(dst) + dstOffset / 8, dstSize, pattern);
 					case 16:
-						return setall_launcher(cuda::getContext(context).getStream(), cuda::getPointer<int4>(dst) + dstOffset / 16, dstSize, pattern);
+						return setall_launcher(getContext(context).getStream(), getPointer<int4>(dst) + dstOffset / 16, dstSize, pattern);
 					default:
 						return AVOCADO_STATUS_BAD_PARAM;
 				}
@@ -116,22 +107,21 @@ namespace avocado
 		avStatus_t cudaCopyMemory(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, const avMemoryDescriptor_t src,
 				av_int64 srcOffset, av_int64 count)
 		{
-			if (not cuda::same_device_type(context, dst, src))
+			if (not same_device_type(context, dst, src))
 				return AVOCADO_STATUS_DEVICE_TYPE_MISMATCH;
 			try
 			{
-				cuda::getContext(context).setDevice();
+				getContext(context).setDevice();
 				bool is_direct_copy_possible;
-				cudaIsCopyPossible(cuda::getMemory(src).device(), cuda::getMemory(dst).device(), &is_direct_copy_possible);
+				cudaIsCopyPossible(getMemory(src).device(), getMemory(dst).device(), &is_direct_copy_possible);
 				if (is_direct_copy_possible) // can use peer-to-peer copy
 				{
 					cudaError_t status;
 					if (isDefault(context))
-						status = cudaMemcpy(cuda::getPointer<int8_t>(dst) + dstOffset, cuda::getPointer<int8_t>(src) + srcOffset, count,
-								cudaMemcpyDeviceToDevice);
+						status = cudaMemcpy(getPointer<int8_t>(dst) + dstOffset, getPointer<int8_t>(src) + srcOffset, count, cudaMemcpyDeviceToDevice);
 					else
-						status = cudaMemcpyAsync(cuda::getPointer<int8_t>(dst) + dstOffset, cuda::getPointer<int8_t>(src) + srcOffset, count,
-								cudaMemcpyDeviceToDevice, cuda::getContext(context).getStream());
+						status = cudaMemcpyAsync(getPointer<int8_t>(dst) + dstOffset, getPointer<int8_t>(src) + srcOffset, count, cudaMemcpyDeviceToDevice,
+								getContext(context).getStream());
 					return convertStatus(status);
 				}
 				else // must use intermediate host buffer
@@ -157,32 +147,29 @@ namespace avocado
 			cudaError_t status;
 			try
 			{
-				cuda::getContext(context).setDevice();
+				getContext(context).setDevice();
 				if (isDefault(context))
-					status = cudaMemcpy(dst, cuda::getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost);
+					status = cudaMemcpy(dst, getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost);
 				else
-					status = cudaMemcpyAsync(dst, cuda::getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost,
-							cuda::getContext(context).getStream());
+					status = cudaMemcpyAsync(dst, getPointer<int8_t>(src) + srcOffset, bytes, cudaMemcpyDeviceToHost, getContext(context).getStream());
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
 			}
 			return convertStatus(status);
 		}
-		avStatus_t cudaCopyMemoryFromHost(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, const void *src,
-				av_int64 bytes)
+		avStatus_t cudaCopyMemoryFromHost(avContextDescriptor_t context, avMemoryDescriptor_t dst, av_int64 dstOffset, const void *src, av_int64 bytes)
 		{
 			if (src == nullptr)
 				return AVOCADO_STATUS_BAD_PARAM;
 			cudaError_t status;
 			try
 			{
-				cuda::getContext(context).setDevice();
+				getContext(context).setDevice();
 				if (isDefault(context))
-					status = cudaMemcpy(cuda::getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice);
+					status = cudaMemcpy(getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice);
 				else
-					status = cudaMemcpyAsync(cuda::getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice,
-							cuda::getContext(context).getStream());
+					status = cudaMemcpyAsync(getPointer<int8_t>(dst) + dstOffset, src, bytes, cudaMemcpyHostToDevice, getContext(context).getStream());
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -206,25 +193,21 @@ namespace avocado
 
 		int cudaGetNumberOfDevices()
 		{
-			return cuda::get_number_of_devices();
+			return getNumberOfDevices();
 		}
 
 		avStatus_t cudaCreateContextDescriptor(avContextDescriptor_t *result, avDeviceIndex_t deviceIndex)
 		{
-			return cuda::create<cuda::ContextDescriptor>(result, deviceIndex);
+			return create_descriptor<ContextDescriptor>(result, deviceIndex);
 		}
 		avStatus_t cudaDestroyContextDescriptor(avContextDescriptor_t desc)
 		{
-			if (desc == AVOCADO_NULL_DESCRIPTOR)
-				return AVOCADO_STATUS_BAD_PARAM;
-			if (isDefault(desc))
-				return AVOCADO_STATUS_BAD_PARAM;
-			return cuda::destroy<cuda::ContextDescriptor>(desc);
+			return destroy_descriptor<ContextDescriptor>(desc);
 		}
 		avContextDescriptor_t cudaGetDefaultContext(avDeviceIndex_t deviceIndex)
 		{
 			if (deviceIndex >= 0 and deviceIndex < cudaGetNumberOfDevices())
-				return cuda::create_descriptor(deviceIndex, cuda::ContextDescriptor::descriptor_type);
+				return createDescriptor(deviceIndex, ContextDescriptor::descriptor_type);
 			else
 				return static_cast<avContextDescriptor_t>(-1);
 		}
@@ -232,8 +215,8 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getContext(context).setDevice();
-				cudaError_t status = cudaStreamSynchronize(cuda::getContext(context).getStream());
+				getContext(context).setDevice();
+				cudaError_t status = cudaStreamSynchronize(getContext(context).getStream());
 				if (status != cudaSuccess)
 					return AVOCADO_STATUS_INTERNAL_ERROR;
 			} catch (std::exception &e)
@@ -248,8 +231,8 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-				cuda::getContext(context).setDevice();
-				cudaError_t status = cudaStreamQuery(cuda::getContext(context).getStream());
+				getContext(context).setDevice();
+				cudaError_t status = cudaStreamQuery(getContext(context).getStream());
 				if (status == cudaSuccess)
 					result[0] = true;
 				else
@@ -271,13 +254,11 @@ namespace avocado
 
 		avStatus_t cudaCreateTensorDescriptor(avTensorDescriptor_t *result)
 		{
-			return cuda::create<cuda::TensorDescriptor>(result);
+			return create_descriptor<TensorDescriptor>(result, std::initializer_list<int> { }, AVOCADO_DTYPE_UNKNOWN);
 		}
 		avStatus_t cudaDestroyTensorDescriptor(avTensorDescriptor_t desc)
 		{
-			if (desc == AVOCADO_NULL_DESCRIPTOR)
-				return AVOCADO_STATUS_BAD_PARAM;
-			return cuda::destroy<cuda::TensorDescriptor>(desc);
+			return destroy_descriptor<TensorDescriptor>(desc);
 		}
 		avStatus_t cudaSetTensorDescriptor(avTensorDescriptor_t desc, avDataType_t dtype, int nbDims, const int dimensions[])
 		{
@@ -288,7 +269,7 @@ namespace avocado
 
 			try
 			{
-				cuda::getTensor(desc).set(dtype, nbDims, dimensions);
+				getTensor(desc).set(dtype, nbDims, dimensions);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -299,7 +280,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getTensor(desc).get(dtype, nbDims, dimensions);
+				getTensor(desc).get(dtype, nbDims, dimensions);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -309,20 +290,18 @@ namespace avocado
 
 		avStatus_t cudaCreateConvolutionDescriptor(avConvolutionDescriptor_t *result)
 		{
-			return cuda::create<cuda::ConvolutionDescriptor>(result);
+			return create_descriptor<ConvolutionDescriptor>(result);
 		}
 		avStatus_t cudaDestroyConvolutionDescriptor(avConvolutionDescriptor_t desc)
 		{
-			if (desc == AVOCADO_NULL_DESCRIPTOR)
-				return AVOCADO_STATUS_BAD_PARAM;
-			return cuda::destroy<cuda::ConvolutionDescriptor>(desc);
+			return destroy_descriptor<ConvolutionDescriptor>(desc);
 		}
-		avStatus_t cudaSetConvolutionDescriptor(avConvolutionDescriptor_t desc, avConvolutionMode_t mode, int nbDims, const int padding[],
-				const int strides[], const int dilation[], int groups, const void *paddingValue)
+		avStatus_t cudaSetConvolutionDescriptor(avConvolutionDescriptor_t desc, avConvolutionMode_t mode, int nbDims, const int padding[], const int strides[],
+				const int dilation[], int groups, const void *paddingValue)
 		{
 			try
 			{
-				cuda::getConvolution(desc).set(mode, nbDims, padding, strides, dilation, groups, paddingValue);
+				getConvolution(desc).set(mode, nbDims, padding, strides, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -334,7 +313,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getConvolution(desc).get(mode, nbDims, padding, strides, dilation, groups, paddingValue);
+				getConvolution(desc).get(mode, nbDims, padding, strides, dilation, groups, paddingValue);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -344,20 +323,18 @@ namespace avocado
 
 		avStatus_t cudaCreateOptimizerDescriptor(avOptimizerDescriptor_t *result)
 		{
-			return cuda::create<cuda::OptimizerDescriptor>(result);
+			return create_descriptor<OptimizerDescriptor>(result);
 		}
 		avStatus_t cudaDestroyOptimizerDescriptor(avOptimizerDescriptor_t desc)
 		{
-			if (desc == AVOCADO_NULL_DESCRIPTOR)
-				return AVOCADO_STATUS_BAD_PARAM;
-			return cuda::destroy<cuda::OptimizerDescriptor>(desc);
+			return destroy_descriptor<OptimizerDescriptor>(desc);
 		}
 		avStatus_t cudaSetOptimizerDescriptor(avOptimizerDescriptor_t desc, avOptimizerType_t type, av_int64 steps, double learningRate,
 				const double coefficients[], const bool flags[])
 		{
 			try
 			{
-				cuda::getOptimizer(desc).set(type, steps, learningRate, coefficients, flags);
+				getOptimizer(desc).set(type, steps, learningRate, coefficients, flags);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -369,7 +346,7 @@ namespace avocado
 		{
 			try
 			{
-				cuda::getOptimizer(desc).get(type, steps, learningRate, coefficients, flags);
+				getOptimizer(desc).get(type, steps, learningRate, coefficients, flags);
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;
@@ -382,7 +359,7 @@ namespace avocado
 				return AVOCADO_STATUS_BAD_PARAM;
 			try
 			{
-				cuda::getOptimizer(desc).get_workspace_size(result, cuda::getTensor(wDesc));
+				getOptimizer(desc).get_workspace_size(result, getTensor(wDesc));
 			} catch (std::exception &e)
 			{
 				return AVOCADO_STATUS_INTERNAL_ERROR;

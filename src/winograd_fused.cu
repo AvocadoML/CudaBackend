@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
@@ -21,6 +21,7 @@
 namespace
 {
 	using namespace avocado::backend;
+	using namespace avocado::backend::BACKEND_NAMESPACE;
 
 	template<typename T, int Rows, int Columns = Rows>
 	struct Tile
@@ -773,7 +774,7 @@ namespace
 			}
 	}
 
-	TensorShape get_tensor_shape(const cuda::TensorDescriptor &desc)
+	TensorShape get_tensor_shape(const TensorDescriptor &desc)
 	{
 		return TensorShape(desc);
 	}
@@ -783,39 +784,41 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
+
 		avStatus_t cuda_winogradFusedForward(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const void *alpha1,
 				const avTensorDescriptor_t xDesc, const avMemoryDescriptor_t xMem, const avTensorDescriptor_t wDesc, const avMemoryDescriptor_t wMem,
 				const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem, const void *alpha2, const avTensorDescriptor_t zDesc,
 				const avMemoryDescriptor_t zMem, const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem,
 				const avActivationType_t activation)
 		{
-			TensorShape input_shape = get_tensor_shape(cuda::getTensor(xDesc));
-			TensorShape output_shape = get_tensor_shape(cuda::getTensor(yDesc));
+			TensorShape input_shape = get_tensor_shape(getTensor(xDesc));
+			TensorShape output_shape = get_tensor_shape(getTensor(yDesc));
 
-			int batch_size = cuda::getTensor(xDesc).dimension(0);
-			int tile_h = (cuda::getTensor(xDesc).dimension(1) + 7) / 8;
-			int tile_w = (cuda::getTensor(xDesc).dimension(2) + 7) / 8;
-			int filters_in = cuda::getTensor(xDesc).dimension(3);
-			int filters_out = cuda::getTensor(yDesc).dimension(3);
+			int batch_size = getTensor(xDesc).dimension(0);
+			int tile_h = (getTensor(xDesc).dimension(1) + 7) / 8;
+			int tile_w = (getTensor(xDesc).dimension(2) + 7) / 8;
+			int filters_in = getTensor(xDesc).dimension(3);
+			int filters_out = getTensor(yDesc).dimension(3);
 
 			dim3 blockDim(256);
 			dim3 gridDim(batch_size * ((filters_out + 63) / 64), tile_h, tile_w);
 //			dim3 gridDim(1, 1, 1);
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
 			int2 padding { -1, -1 };
 
-			switch (cuda::getTensor(yDesc).dtype())
+			switch (getTensor(yDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
-					float _alpha1 = cuda::getAlphaValue(alpha1);
-					float _alpha2 = cuda::getAlphaValue(alpha2);
-					float _beta = cuda::getBetaValue(beta);
-					kernel_winograd_fused<float, ActivationLinear<float>> <<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(wMem), cuda::getPointer<float>(xMem),
-							input_shape, cuda::getPointer<float>(yMem), output_shape, padding, _alpha1, _alpha2, _beta, cuda::getPointer<float>(bMem),
-							cuda::getPointer<float>(zMem));
+					float _alpha1 = getAlphaValue(alpha1);
+					float _alpha2 = getAlphaValue(alpha2);
+					float _beta = getBetaValue(beta);
+					kernel_winograd_fused<float, ActivationLinear<float>> <<<gridDim, blockDim, 0, stream>>>(getPointer<float>(wMem), getPointer<float>(xMem),
+							input_shape, getPointer<float>(yMem), output_shape, padding, _alpha1, _alpha2, _beta, getPointer<float>(bMem),
+							getPointer<float>(zMem));
 				}
 					break;
 			}

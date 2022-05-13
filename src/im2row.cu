@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
@@ -70,7 +70,9 @@ namespace avocado
 {
 	namespace backend
 	{
-		bool is_conv(int expectedSize, const cuda::TensorDescriptor &wDesc) noexcept
+		using namespace BACKEND_NAMESPACE;
+
+		bool is_conv(int expectedSize, const TensorDescriptor &wDesc) noexcept
 		{
 			for (int i = 0; i < wDesc.nbDims() - 2; i++)
 				if (wDesc.dimension(1 + i) != expectedSize)
@@ -81,24 +83,24 @@ namespace avocado
 		avStatus_t cudaIm2Row(avContextDescriptor_t context, const avConvolutionDescriptor_t config, const avTensorDescriptor_t filterDesc,
 				const avTensorDescriptor_t srcDesc, const avMemoryDescriptor_t srcMem, const avTensorDescriptor_t rowDesc, avMemoryDescriptor_t rowMem)
 		{
-			cuda::getContext(context).setDevice();
-			const bool invert = (cuda::getConvolution(config).mode == AVOCADO_CROSS_CORRELATION_MODE);
-			TensorShape input_shape(cuda::getTensor(srcDesc));
-			TensorShape output_shape(cuda::getConvolution(config).getOutputShape(cuda::getTensor(srcDesc), cuda::getTensor(filterDesc)));
+			getContext(context).setDevice();
+			const bool invert = (getConvolution(config).mode == AVOCADO_CROSS_CORRELATION_MODE);
+			TensorShape input_shape(getTensor(srcDesc));
+			TensorShape output_shape(getConvolution(config).getOutputShape(getTensor(srcDesc), getTensor(filterDesc)));
 
-			const int2 kernel_size = { cuda::getTensor(filterDesc).dimension(1), cuda::getTensor(filterDesc).dimension(2) };
-			const int2 padding = { cuda::getConvolution(config).padding[0], cuda::getConvolution(config).padding[1] };
+			const int2 kernel_size = { getTensor(filterDesc).dimension(1), getTensor(filterDesc).dimension(2) };
+			const int2 padding = { getConvolution(config).padding[0], getConvolution(config).padding[1] };
 
 			dim3 blockSize(256);
-			dim3 gridSize(std::min(2048, (cuda::getTensor(srcDesc).volume() + 255) / 256));
-			cudaStream_t stream = cuda::getContext(context).getStream();
+			dim3 gridSize(std::min(2048, (getTensor(srcDesc).volume() + 255) / 256));
+			cudaStream_t stream = getContext(context).getStream();
 
 #define KERNEL_LAUNCH(type)\
-				{type padding_value = cuda::getConvolution(config).getPaddingValue<type>();\
-				kernel_im2row_conv2d<<<gridSize, blockSize, 0, stream>>>(cuda::getPointer<type>(srcMem), input_shape, cuda::getPointer<type>(rowMem), output_shape, kernel_size, padding, invert, padding_value);\
+				{type padding_value = getConvolution(config).getPaddingValue<type>();\
+				kernel_im2row_conv2d<<<gridSize, blockSize, 0, stream>>>(getPointer<type>(srcMem), input_shape, getPointer<type>(rowMem), output_shape, kernel_size, padding, invert, padding_value);\
 				break;}
 
-			switch (cuda::dataTypeSize(cuda::getTensor(srcDesc).dtype()))
+			switch (dataTypeSize(getTensor(srcDesc).dtype()))
 			{
 				default:
 				case 1:

@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
@@ -407,6 +407,7 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
 
 		avStatus_t cudaSoftmaxForward(avContextDescriptor_t context, avSoftmaxMode_t mode, const void *alpha, const avTensorDescriptor_t xDesc,
 				const avMemoryDescriptor_t xMem, const void *beta, const avTensorDescriptor_t yDesc, avMemoryDescriptor_t yMem)
@@ -414,37 +415,37 @@ namespace avocado
 			unsigned int first_dim, last_dim;
 			if (mode == AVOCADO_SOFTMAX_MODE_CHANNEL)
 			{
-				first_dim = cuda::getTensor(xDesc).volumeWithoutLastDim();
-				last_dim = cuda::getTensor(xDesc).lastDim();
+				first_dim = getTensor(xDesc).volumeWithoutLastDim();
+				last_dim = getTensor(xDesc).lastDim();
 			}
 			else
 			{
-				first_dim = cuda::getTensor(xDesc).firstDim();
-				last_dim = cuda::getTensor(xDesc).volumeWithoutFirstDim();
+				first_dim = getTensor(xDesc).firstDim();
+				last_dim = getTensor(xDesc).volumeWithoutFirstDim();
 			}
 
 			dim3 blockDim(256);
 			dim3 gridDim = gridSize<512>(first_dim, blockDim.x);
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
-			switch (cuda::getTensor(xDesc).dtype())
+			switch (getTensor(xDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT16:
-					helper_softmax_forward(stream, cuda::getPointer<half>(xMem), cuda::getPointer<half>(yMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), first_dim, last_dim);
+					helper_softmax_forward(stream, getPointer<half>(xMem), getPointer<half>(yMem), getAlphaValue(alpha), getBetaValue(beta), first_dim,
+							last_dim);
 					break;
 				case AVOCADO_DTYPE_BFLOAT16:
-					helper_softmax_forward(stream, cuda::getPointer<bfloat16>(xMem), cuda::getPointer<bfloat16>(yMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), first_dim, last_dim);
+					helper_softmax_forward(stream, getPointer<bfloat16>(xMem), getPointer<bfloat16>(yMem), getAlphaValue(alpha), getBetaValue(beta), first_dim,
+							last_dim);
 					break;
 				case AVOCADO_DTYPE_FLOAT32:
-					helper_softmax_forward(stream, cuda::getPointer<float>(xMem), cuda::getPointer<float>(yMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), first_dim, last_dim);
+					helper_softmax_forward(stream, getPointer<float>(xMem), getPointer<float>(yMem), getAlphaValue(alpha), getBetaValue(beta), first_dim,
+							last_dim);
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					helper_softmax_forward(stream, cuda::getPointer<double>(xMem), cuda::getPointer<double>(yMem), cuda::getAlphaValue<double>(alpha),
-							cuda::getBetaValue<double>(beta), first_dim, last_dim);
+					helper_softmax_forward(stream, getPointer<double>(xMem), getPointer<double>(yMem), getAlphaValue<double>(alpha), getBetaValue<double>(beta),
+							first_dim, last_dim);
 					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
@@ -455,21 +456,21 @@ namespace avocado
 				const avMemoryDescriptor_t yMem, const avTensorDescriptor_t dyDesc, const avMemoryDescriptor_t dyMem, const void *beta,
 				const avTensorDescriptor_t dxDesc, avMemoryDescriptor_t dxMem)
 		{
-			const unsigned int elements = cuda::getTensor(yDesc).volume();
+			const unsigned int elements = getTensor(yDesc).volume();
 			dim3 blockDim(256);
 			dim3 gridDim = gridSize<512>(elements, blockDim.x);
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
-			switch (cuda::getTensor(yDesc).dtype())
+			switch (getTensor(yDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					kernel_softmax_backward<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(dxMem), cuda::getPointer<float>(dyMem),
-							cuda::getPointer<float>(yMem), cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), elements);
+					kernel_softmax_backward<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(dxMem), getPointer<float>(dyMem), getPointer<float>(yMem),
+							getAlphaValue(alpha), getBetaValue(beta), elements);
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					kernel_softmax_backward<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(dxMem), cuda::getPointer<double>(dyMem),
-							cuda::getPointer<double>(yMem), cuda::getAlphaValue<double>(alpha), cuda::getBetaValue<double>(beta), elements);
+					kernel_softmax_backward<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(dxMem), getPointer<double>(dyMem), getPointer<double>(yMem),
+							getAlphaValue<double>(alpha), getBetaValue<double>(beta), elements);
 					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;

@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
@@ -19,6 +19,7 @@
 namespace
 {
 	using namespace avocado::backend;
+	using namespace avocado::backend::BACKEND_NAMESPACE;
 
 	template<typename T>
 	__device__ T round_small_to_zero(T x)
@@ -30,8 +31,8 @@ namespace
 	}
 
 	template<typename T>
-	__global__ void kernel_learn_sgd(T *weight, const T *update, T *momentum, uint32_t elements, T learning_rate, T beta1, bool use_momentum,
-			bool use_nesterov, T alpha, T beta)
+	__global__ void kernel_learn_sgd(T *weight, const T *update, T *momentum, uint32_t elements, T learning_rate, T beta1, bool use_momentum, bool use_nesterov,
+			T alpha, T beta)
 	{
 		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
@@ -50,8 +51,8 @@ namespace
 		}
 	}
 	template<typename T>
-	__global__ void kernel_learn_adam(T *weight, const T *update, T *momentum, T *variance, uint32_t elements, T learning_rate, T beta1, T beta2,
-			T alpha, T beta)
+	__global__ void kernel_learn_adam(T *weight, const T *update, T *momentum, T *variance, uint32_t elements, T learning_rate, T beta1, T beta2, T alpha,
+			T beta)
 	{
 		for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
 		{
@@ -62,15 +63,15 @@ namespace
 		}
 	}
 
-	avStatus_t launcher_sgd(const cuda::ContextDescriptor &context, const cuda::OptimizerDescriptor &config, const void *alpha, const void *beta,
-			const cuda::TensorDescriptor &wDesc, cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor &workspace)
+	avStatus_t launcher_sgd(const ContextDescriptor &context, const OptimizerDescriptor &config, const void *alpha, const void *beta,
+			const TensorDescriptor &wDesc, MemoryDescriptor &wMem, const MemoryDescriptor &dwMem, MemoryDescriptor &workspace)
 	{
 		const uint32_t elements = wDesc.volume();
 		const bool use_momentum = config.flags[0];
 		const bool use_nesterov = config.flags[1];
 		if (use_momentum)
 		{
-			if (workspace.size() < elements * cuda::dataTypeSize(wDesc.dtype()))
+			if (workspace.sizeInBytes() < elements * dataTypeSize(wDesc.dtype()))
 				return AVOCADO_STATUS_INTERNAL_ERROR;
 		}
 
@@ -82,8 +83,8 @@ namespace
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				const float _alpha = cuda::getAlphaValue(alpha);
-				const float _beta = cuda::getBetaValue(beta);
+				const float _alpha = getAlphaValue(alpha);
+				const float _beta = getBetaValue(beta);
 				const float beta1 = config.coef[0];
 				const float learning_rate = config.learning_rate;
 				float *momentum = use_momentum ? workspace.data<float>() : nullptr;
@@ -93,8 +94,8 @@ namespace
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				const double _alpha = cuda::getAlphaValue<double>(alpha);
-				const double _beta = cuda::getBetaValue<double>(beta);
+				const double _alpha = getAlphaValue<double>(alpha);
+				const double _beta = getBetaValue<double>(beta);
 				const double beta1 = config.coef[0];
 				const double learning_rate = config.learning_rate;
 				double *momentum = use_momentum ? workspace.data<double>() : nullptr;
@@ -107,12 +108,12 @@ namespace
 		}
 		return checkForErrors();
 	}
-	avStatus_t launcher_adam(const cuda::ContextDescriptor &context, cuda::OptimizerDescriptor &optimizer, const void *alpha, const void *beta,
-			const cuda::TensorDescriptor &wDesc, cuda::MemoryDescriptor &wMem, const cuda::MemoryDescriptor &dwMem, cuda::MemoryDescriptor &workspace)
+	avStatus_t launcher_adam(const ContextDescriptor &context, OptimizerDescriptor &optimizer, const void *alpha, const void *beta,
+			const TensorDescriptor &wDesc, MemoryDescriptor &wMem, const MemoryDescriptor &dwMem, MemoryDescriptor &workspace)
 	{
 		const uint32_t elements = wDesc.volume();
 
-		if (workspace.size() < 2 * elements * cuda::dataTypeSize(wDesc.dtype()))
+		if (workspace.sizeInBytes() < 2 * elements * dataTypeSize(wDesc.dtype()))
 			return AVOCADO_STATUS_INTERNAL_ERROR;
 
 		dim3 blockDim(256);
@@ -124,8 +125,8 @@ namespace
 		{
 			case AVOCADO_DTYPE_FLOAT32:
 			{
-				const float _alpha = cuda::getAlphaValue(alpha);
-				const float _beta = cuda::getBetaValue(beta);
+				const float _alpha = getAlphaValue(alpha);
+				const float _beta = getBetaValue(beta);
 				const float beta1 = optimizer.coef[0];
 				const float beta2 = optimizer.coef[1];
 				float learning_rate = optimizer.learning_rate;
@@ -138,8 +139,8 @@ namespace
 			}
 			case AVOCADO_DTYPE_FLOAT64:
 			{
-				const double _alpha = cuda::getAlphaValue<double>(alpha);
-				const double _beta = cuda::getBetaValue<double>(beta);
+				const double _alpha = getAlphaValue<double>(alpha);
+				const double _beta = getBetaValue<double>(beta);
 				const double beta1 = optimizer.coef[0];
 				const double beta2 = optimizer.coef[1];
 				double learning_rate = optimizer.learning_rate;
@@ -161,19 +162,20 @@ namespace avocado
 {
 	namespace backend
 	{
-		avStatus_t cudaOptimizerLearn(avContextDescriptor_t context, const avOptimizerDescriptor_t config, const void *alpha,
-				const avTensorDescriptor_t dwDesc, const avTensorDescriptor_t dwMem, const void *beta, const avTensorDescriptor_t wDesc,
-				avMemoryDescriptor_t wMem, avMemoryDescriptor_t workspace)
+		using namespace BACKEND_NAMESPACE;
+
+		avStatus_t cudaOptimizerLearn(avContextDescriptor_t context, const avOptimizerDescriptor_t config, const void *alpha, const avTensorDescriptor_t dwDesc,
+				const avTensorDescriptor_t dwMem, const void *beta, const avTensorDescriptor_t wDesc, avMemoryDescriptor_t wMem, avMemoryDescriptor_t workspace)
 		{
-			cuda::getContext(context).setDevice();
-			switch (cuda::getOptimizer(config).type)
+			getContext(context).setDevice();
+			switch (getOptimizer(config).type)
 			{
 				case AVOCADO_OPTIMIZER_SGD:
-					return launcher_sgd(cuda::getContext(context), cuda::getOptimizer(config), alpha, beta, cuda::getTensor(wDesc),
-							cuda::getMemory(wMem), cuda::getMemory(dwMem), cuda::getMemory(workspace));
+					return launcher_sgd(getContext(context), getOptimizer(config), alpha, beta, getTensor(wDesc), getMemory(wMem), getMemory(dwMem),
+							getMemory(workspace));
 				case AVOCADO_OPTIMIZER_ADAM:
-					return launcher_adam(cuda::getContext(context), cuda::getOptimizer(config), alpha, beta, cuda::getTensor(wDesc),
-							cuda::getMemory(wMem), cuda::getMemory(dwMem), cuda::getMemory(workspace));
+					return launcher_adam(getContext(context), getOptimizer(config), alpha, beta, getTensor(wDesc), getMemory(wMem), getMemory(dwMem),
+							getMemory(workspace));
 				default:
 					return AVOCADO_STATUS_BAD_PARAM;
 			}

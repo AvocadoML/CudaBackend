@@ -6,7 +6,16 @@ option(BUILD_SHARED_LIBS "Build shared library?" OFF)
 set(CMAKE_DEBUG_POSTFIX "d" CACHE STRING "Choose debug postfix" FORCE)
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose build type" FORCE)
 set(CMAKE_CUDA_ARCHITECTURES "61" CACHE STRING "Choose target CUDA architecture level" FORCE)
-set(PATH_TO_MAIN_LIB "${PROJECT_SOURCE_DIR}/../Avocado" CACHE STRING "Path to the main Avocado project")
+set(PATH_TO_COMMON_UTILS "${PROJECT_SOURCE_DIR}/../CommonBackendUtils" CACHE STRING "Path to the common backend utils project")
+
+set(commonsrc 	${PATH_TO_COMMON_UTILS}/src/descriptors/ContextDescriptor.cpp
+				${PATH_TO_COMMON_UTILS}/src/descriptors/ConvolutionDescriptor.cpp
+				${PATH_TO_COMMON_UTILS}/src/descriptors/DropoutDescriptor.cpp
+				${PATH_TO_COMMON_UTILS}/src/descriptors/MemoryDescriptor.cpp
+				${PATH_TO_COMMON_UTILS}/src/descriptors/OptimizerDescriptor.cpp
+				${PATH_TO_COMMON_UTILS}/src/descriptors/PoolingDescriptor.cpp
+				${PATH_TO_COMMON_UTILS}/src/descriptors/TensorDescriptor.cpp
+				${PATH_TO_COMMON_UTILS}/src/backend_utils.cpp)
 
 set(libsrc 	src/activations.cu
 		src/batchnorm.cu
@@ -29,8 +38,7 @@ set(libsrc 	src/activations.cu
 		src/tensor_reduction.cu
 		src/tensor_unary_op.cu
 		src/winograd_fused.cu
-		src/winograd_nonfused.cu
-		${PATH_TO_MAIN_LIB}/include/Avocado/backend/backend_descriptors.cpp)
+		src/winograd_nonfused.cu)
 			
 if(BUILD_SHARED_LIBS)
   set(LIBRARY_NAME "AvocadoCudaBackend")
@@ -43,13 +51,10 @@ endif()
 			
 set_target_properties(${LIBRARY_NAME} PROPERTIES CUDA_STANDARD 14 CUDA_STANDARD_REQUIRED YES CUDA_SEPARABLE_COMPILATION ON CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-target_include_directories(${LIBRARY_NAME} PUBLIC "${PROJECT_SOURCE_DIR}/include" "${PATH_TO_MAIN_LIB}/include/Avocado/backend")
-target_include_directories(${LIBRARY_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/extern")
-target_compile_definitions(${LIBRARY_NAME} PRIVATE USE_CPU=0 USE_CUDA=1 USE_OPENCL=0)
+target_include_directories(${LIBRARY_NAME} PUBLIC "${PROJECT_SOURCE_DIR}/include" "${PATH_TO_COMMON_UTILS}/include")
+target_compile_definitions(${LIBRARY_NAME} PRIVATE CUDA_BACKEND)
 target_link_libraries(${LIBRARY_NAME} PUBLIC cudart cublas)
 
 install(TARGETS ${LIBRARY_NAME})
-#install(DIRECTORY include/ DESTINATION include FILES_MATCHING PATTERN "*.h")
-install(FILES "include/CudaBackend/cuda_backend.h" DESTINATION include/CudaBackend)
-install(FILES "${PATH_TO_MAIN_LIB}/include/Avocado/backend/backend_defs.h" DESTINATION include/CudaBackend)
+install(FILES "include/Avocado/cuda_backend.h" DESTINATION include/Avocado)
 

@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "logical_ops.cuh"
@@ -21,6 +21,7 @@
 namespace
 {
 	using namespace avocado::backend;
+	using namespace avocado::backend::BACKEND_NAMESPACE;
 
 	template<typename T>
 	class UnaryOpAbs
@@ -249,31 +250,32 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
+
 		avStatus_t cudaUnaryOp(avContextDescriptor_t context, avUnaryOp_t operation, const void *alpha, const avTensorDescriptor_t aDesc,
 				const avMemoryDescriptor_t aMem, const void *beta, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem)
 		{
-			unsigned int elements = cuda::getTensor(aDesc).volume();
+			unsigned int elements = getTensor(aDesc).volume();
 
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
-			switch (cuda::getTensor(cDesc).dtype())
+			switch (getTensor(cDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT16:
-					launcher_unary_op(stream, cuda::getPointer<float16>(cMem), cuda::getPointer<float16>(aMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), elements, operation);
+					launcher_unary_op(stream, getPointer<float16>(cMem), getPointer<float16>(aMem), getAlphaValue(alpha), getBetaValue(beta), elements,
+							operation);
 					break;
 				case AVOCADO_DTYPE_BFLOAT16:
-					launcher_unary_op(stream, cuda::getPointer<bfloat16>(cMem), cuda::getPointer<bfloat16>(aMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), elements, operation);
+					launcher_unary_op(stream, getPointer<bfloat16>(cMem), getPointer<bfloat16>(aMem), getAlphaValue(alpha), getBetaValue(beta), elements,
+							operation);
 					break;
 				case AVOCADO_DTYPE_FLOAT32:
-					launcher_unary_op(stream, cuda::getPointer<float>(cMem), cuda::getPointer<float>(aMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), elements, operation);
+					launcher_unary_op(stream, getPointer<float>(cMem), getPointer<float>(aMem), getAlphaValue(alpha), getBetaValue(beta), elements, operation);
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					launcher_unary_op(stream, cuda::getPointer<double>(cMem), cuda::getPointer<double>(aMem), cuda::getAlphaValue<double>(alpha),
-							cuda::getBetaValue<double>(beta), elements, operation);
+					launcher_unary_op(stream, getPointer<double>(cMem), getPointer<double>(aMem), getAlphaValue<double>(alpha), getBetaValue<double>(beta),
+							elements, operation);
 					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;

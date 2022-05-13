@@ -9,7 +9,7 @@
 #define ACTIVATIONS_CUH_
 
 #include "numbers/numbers.cuh"
-#include <backend_descriptors.hpp>
+#include <Avocado/backend_descriptors.hpp>
 
 template<typename T>
 __host__ __device__ T scalar_zero() noexcept

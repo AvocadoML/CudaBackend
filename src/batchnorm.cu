@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "activations.cuh"
 #include "utilities.hpp"
@@ -21,6 +21,7 @@
 namespace
 {
 	using namespace avocado::backend;
+	using namespace avocado::backend::BACKEND_NAMESPACE;
 	using namespace numbers;
 
 	template<typename T, typename U = T>
@@ -280,12 +281,12 @@ namespace
 	}
 
 	template<typename T>
-	void helper_batchnorm_backward(cuda::ContextDescriptor &context, avActivationType_t activation, T alpha, const cuda::TensorDescriptor& xDesc, const T* xMem,
-			const cuda::TensorDescriptor& yDesc, const T* yMem, T beta, const cuda::TensorDescriptor& dxDesc, T* dxMem, const cuda::TensorDescriptor& dyDesc,
-			T* dyMem, const cuda::TensorDescriptor& scaleMeanVarDesc, const T* scaleMem, const T* meanMem, const T* varianceMem, T alpha2, T beta2,
-			T* scaleUpdateMem, T* biasUpdateMem, double epsilon)
+	void helper_batchnorm_backward(ContextDescriptor &context, avActivationType_t activation, T alpha, const TensorDescriptor& xDesc, const T* xMem,
+			const TensorDescriptor& yDesc, const T* yMem, T beta, const TensorDescriptor& dxDesc, T* dxMem, const TensorDescriptor& dyDesc, T* dyMem,
+			const TensorDescriptor& scaleMeanVarDesc, const T* scaleMem, const T* meanMem, const T* varianceMem, T alpha2, T beta2, T* scaleUpdateMem,
+			T* biasUpdateMem, double epsilon)
 	{
-		cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(xDesc, scaleMeanVarDesc);
+		BroadcastedDimensions dimensions = getBroadcastDimensions(xDesc, scaleMeanVarDesc);
 		cudaStream_t stream = context.getStream();
 		dim3 blockDim(32, 32);
 		dim3 gridDim1(gridSize<32>(dimensions.last, blockDim.x), gridSize<128>(dimensions.first, blockDim.y), 1);
@@ -309,28 +310,28 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
+
 		avStatus_t cudaAffineForward(avContextDescriptor_t context, avActivationType_t activation, const avTensorDescriptor_t wDesc,
 				const avMemoryDescriptor_t wMem, const avTensorDescriptor_t bDesc, const avMemoryDescriptor_t bMem, const void *alpha,
 				const avTensorDescriptor_t xDesc, const avMemoryDescriptor_t xMem, const void *beta, const avTensorDescriptor_t yDesc,
 				avMemoryDescriptor_t yMem)
 		{
-			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(xDesc), cuda::getTensor(bDesc));
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			BroadcastedDimensions dimensions = getBroadcastDimensions(getTensor(xDesc), getTensor(bDesc));
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<32>(dimensions.last, blockDim.x), gridSize<512>(dimensions.first, blockDim.y), 1);
-			switch (cuda::getTensor(xDesc).dtype())
+			switch (getTensor(xDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					kernel_affine_forward<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(wMem), cuda::getPointer<float>(bMem),
-							cuda::getPointer<float>(xMem), cuda::getPointer<float>(yMem), cuda::getAlphaValue(alpha), cuda::getBetaValue(beta),
-							dimensions.first, dimensions.last, activation);
+					kernel_affine_forward<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(wMem), getPointer<float>(bMem), getPointer<float>(xMem),
+							getPointer<float>(yMem), getAlphaValue(alpha), getBetaValue(beta), dimensions.first, dimensions.last, activation);
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					kernel_affine_forward<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(wMem), cuda::getPointer<double>(bMem),
-							cuda::getPointer<double>(xMem), cuda::getPointer<double>(yMem), cuda::getAlphaValue<double>(alpha),
-							cuda::getBetaValue<double>(beta), dimensions.first, dimensions.last, activation);
+					kernel_affine_forward<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(wMem), getPointer<double>(bMem), getPointer<double>(xMem),
+							getPointer<double>(yMem), getAlphaValue<double>(alpha), getBetaValue<double>(beta), dimensions.first, dimensions.last, activation);
 					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
@@ -343,24 +344,23 @@ namespace avocado
 				const avTensorDescriptor_t scaleBiasMeanVarDesc, const avMemoryDescriptor_t scaleMem, const avMemoryDescriptor_t biasMem,
 				const avMemoryDescriptor_t meanMem, const avMemoryDescriptor_t varianceMem, double epsilon)
 		{
-			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(xDesc), cuda::getTensor(scaleBiasMeanVarDesc));
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			BroadcastedDimensions dimensions = getBroadcastDimensions(getTensor(xDesc), getTensor(scaleBiasMeanVarDesc));
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
 			dim3 blockDim(256);
 			dim3 gridDim(gridSize<32>(dimensions.last, blockDim.x), gridSize<512>(dimensions.first, blockDim.y), 1);
-			switch (cuda::getTensor(xDesc).dtype())
+			switch (getTensor(xDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
-					kernel_batchnorm_forward<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<float>(meanMem), cuda::getPointer<float>(varianceMem),
-							cuda::getPointer<float>(scaleMem), cuda::getPointer<float>(biasMem), cuda::getPointer<float>(xMem), cuda::getPointer<float>(yMem),
-							cuda::getAlphaValue(alpha), cuda::getBetaValue(beta), dimensions.first, dimensions.last, activation, static_cast<float>(epsilon));
+					kernel_batchnorm_forward<<<gridDim, blockDim, 0, stream>>>(getPointer<float>(meanMem), getPointer<float>(varianceMem),
+							getPointer<float>(scaleMem), getPointer<float>(biasMem), getPointer<float>(xMem), getPointer<float>(yMem), getAlphaValue(alpha),
+							getBetaValue(beta), dimensions.first, dimensions.last, activation, static_cast<float>(epsilon));
 					break;
 				case AVOCADO_DTYPE_FLOAT64:
-					kernel_batchnorm_forward<<<gridDim, blockDim, 0, stream>>>(cuda::getPointer<double>(meanMem), cuda::getPointer<double>(varianceMem),
-							cuda::getPointer<double>(scaleMem), cuda::getPointer<double>(biasMem), cuda::getPointer<double>(xMem),
-							cuda::getPointer<double>(yMem), cuda::getAlphaValue<double>(alpha), cuda::getBetaValue<double>(beta), dimensions.first,
-							dimensions.last, activation, epsilon);
+					kernel_batchnorm_forward<<<gridDim, blockDim, 0, stream>>>(getPointer<double>(meanMem), getPointer<double>(varianceMem),
+							getPointer<double>(scaleMem), getPointer<double>(biasMem), getPointer<double>(xMem), getPointer<double>(yMem),
+							getAlphaValue<double>(alpha), getBetaValue<double>(beta), dimensions.first, dimensions.last, activation, epsilon);
 					break;
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
@@ -377,32 +377,30 @@ namespace avocado
 			if (status != AVOCADO_STATUS_SUCCESS)
 				return status;
 
-			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(xDesc), cuda::getTensor(scaleBiasMeanVarDesc));
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			BroadcastedDimensions dimensions = getBroadcastDimensions(getTensor(xDesc), getTensor(scaleBiasMeanVarDesc));
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
 			dim3 blockDim(32, 32);
 			dim3 gridDim1(gridSize<8>(dimensions.last, blockDim.x), gridSize<128>(dimensions.first, blockDim.y), 1);
 			dim3 gridDim2(gridDim1.x, 1, 1);
 
-			switch (cuda::getTensor(xDesc).dtype())
+			switch (getTensor(xDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
-					float * workspace = cuda::getContext(context).getWorkspace().data<float>();
-					kernel_reduce_variance_1<<<gridDim1, blockDim, 0, stream>>>(workspace, cuda::getPointer<float>(xMem), cuda::getPointer<float>(meanMem),
+					float * workspace = getContext(context).getWorkspace().data<float>();
+					kernel_reduce_variance_1<<<gridDim1, blockDim, 0, stream>>>(workspace, getPointer<float>(xMem), getPointer<float>(meanMem),
 							dimensions.first, dimensions.last);
-					kernel_reduce_variance_2<<<gridDim2, blockDim, 0, stream>>>(cuda::getPointer<float>(varianceMem), workspace, dimensions.first,
-							dimensions.last);
+					kernel_reduce_variance_2<<<gridDim2, blockDim, 0, stream>>>(getPointer<float>(varianceMem), workspace, dimensions.first, dimensions.last);
 					break;
 				}
 				case AVOCADO_DTYPE_FLOAT64:
 				{
-					double * workspace = cuda::getContext(context).getWorkspace().data<double>();
-					kernel_reduce_variance_1<<<gridDim1, blockDim, 0, stream>>>(workspace, cuda::getPointer<double>(xMem), cuda::getPointer<double>(meanMem),
+					double * workspace = getContext(context).getWorkspace().data<double>();
+					kernel_reduce_variance_1<<<gridDim1, blockDim, 0, stream>>>(workspace, getPointer<double>(xMem), getPointer<double>(meanMem),
 							dimensions.first, dimensions.last);
-					kernel_reduce_variance_2<<<gridDim2, blockDim, 0, stream>>>(cuda::getPointer<double>(varianceMem), workspace, dimensions.first,
-							dimensions.last);
+					kernel_reduce_variance_2<<<gridDim2, blockDim, 0, stream>>>(getPointer<double>(varianceMem), workspace, dimensions.first, dimensions.last);
 					break;
 				}
 				default:
@@ -423,27 +421,25 @@ namespace avocado
 				const avMemoryDescriptor_t varianceMem, const void *alpha2, const void *beta2, avMemoryDescriptor_t scaleUpdateMem,
 				avMemoryDescriptor_t biasUpdateMem, double epsilon)
 		{
-			cuda::getContext(context).setDevice();
-			switch (cuda::getTensor(xDesc).dtype())
+			getContext(context).setDevice();
+			switch (getTensor(xDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT32:
 				{
-					helper_batchnorm_backward(cuda::getContext(context), activation, cuda::getAlphaValue(alpha), cuda::getTensor(xDesc),
-							cuda::getPointer<float>(xMem), cuda::getTensor(yDesc), cuda::getPointer<float>(yMem), cuda::getBetaValue(beta),
-							cuda::getTensor(dxDesc), cuda::getPointer<float>(dxMem), cuda::getTensor(dyDesc), cuda::getPointer<float>(dyMem),
-							cuda::getTensor(scaleMeanVarDesc), cuda::getPointer<float>(scaleMem), cuda::getPointer<float>(meanMem),
-							cuda::getPointer<float>(varianceMem), cuda::getAlphaValue(alpha2), cuda::getBetaValue(beta2),
-							cuda::getPointer<float>(scaleUpdateMem), cuda::getPointer<float>(biasUpdateMem), epsilon);
+					helper_batchnorm_backward(getContext(context), activation, getAlphaValue(alpha), getTensor(xDesc), getPointer<float>(xMem),
+							getTensor(yDesc), getPointer<float>(yMem), getBetaValue(beta), getTensor(dxDesc), getPointer<float>(dxMem), getTensor(dyDesc),
+							getPointer<float>(dyMem), getTensor(scaleMeanVarDesc), getPointer<float>(scaleMem), getPointer<float>(meanMem),
+							getPointer<float>(varianceMem), getAlphaValue(alpha2), getBetaValue(beta2), getPointer<float>(scaleUpdateMem),
+							getPointer<float>(biasUpdateMem), epsilon);
 					break;
 				}
 				case AVOCADO_DTYPE_FLOAT64:
 				{
-					helper_batchnorm_backward(cuda::getContext(context), activation, cuda::getAlphaValue<double>(alpha), cuda::getTensor(xDesc),
-							cuda::getPointer<double>(xMem), cuda::getTensor(yDesc), cuda::getPointer<double>(yMem), cuda::getBetaValue<double>(beta),
-							cuda::getTensor(dxDesc), cuda::getPointer<double>(dxMem), cuda::getTensor(dyDesc), cuda::getPointer<double>(dyMem),
-							cuda::getTensor(scaleMeanVarDesc), cuda::getPointer<double>(scaleMem), cuda::getPointer<double>(meanMem),
-							cuda::getPointer<double>(varianceMem), cuda::getAlphaValue<double>(alpha2), cuda::getBetaValue<double>(beta2),
-							cuda::getPointer<double>(scaleUpdateMem), cuda::getPointer<double>(biasUpdateMem), epsilon);
+					helper_batchnorm_backward(getContext(context), activation, getAlphaValue<double>(alpha), getTensor(xDesc), getPointer<double>(xMem),
+							getTensor(yDesc), getPointer<double>(yMem), getBetaValue<double>(beta), getTensor(dxDesc), getPointer<double>(dxMem),
+							getTensor(dyDesc), getPointer<double>(dyMem), getTensor(scaleMeanVarDesc), getPointer<double>(scaleMem),
+							getPointer<double>(meanMem), getPointer<double>(varianceMem), getAlphaValue<double>(alpha2), getBetaValue<double>(beta2),
+							getPointer<double>(scaleUpdateMem), getPointer<double>(biasUpdateMem), epsilon);
 					break;
 				}
 				default:

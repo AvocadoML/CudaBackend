@@ -5,8 +5,8 @@
  *      Author: Maciej Kozarzewski
  */
 
-#include <CudaBackend/cuda_backend.h>
-#include <backend_descriptors.hpp>
+#include <Avocado/cuda_backend.h>
+#include <Avocado/backend_descriptors.hpp>
 
 #include "utilities.hpp"
 #include "activations.cuh"
@@ -20,6 +20,7 @@
 namespace
 {
 	using namespace avocado::backend;
+	using namespace avocado::backend::BACKEND_NAMESPACE;
 
 //	template<class Accumulator>
 //	__device__ void block_reduce_linear(Accumulator *ptr) noexcept
@@ -186,8 +187,8 @@ namespace
 //	}
 
 	template<class Accumulator, typename T, typename U = T>
-	avStatus_t helper_reduce_tensor(cudaStream_t stream, T* output, const T *input, const U alpha, const U beta, cuda::BroadcastedDimensions dimensions,
-			cuda::MemoryDescriptor &workspace)
+	avStatus_t helper_reduce_tensor(cudaStream_t stream, T* output, const T *input, const U alpha, const U beta, BroadcastedDimensions dimensions,
+			MemoryDescriptor &workspace)
 	{
 		assert(output != nullptr);
 		assert(input != nullptr);
@@ -197,8 +198,8 @@ namespace
 			return launch_broadcasted_reduction<Accumulator, T, U>(stream, output, input, alpha, beta, dimensions.first, dimensions.last, workspace);
 	}
 	template<typename T, typename U = T>
-	avStatus_t launcher_reduce_tensor(cudaStream_t stream, T* dst, const T *input, const U alpha, const U beta, cuda::BroadcastedDimensions dimensions,
-			avReduceOp_t operation, cuda::MemoryDescriptor &workspace)
+	avStatus_t launcher_reduce_tensor(cudaStream_t stream, T* dst, const T *input, const U alpha, const U beta, BroadcastedDimensions dimensions,
+			avReduceOp_t operation, MemoryDescriptor &workspace)
 	{
 		switch (operation)
 		{
@@ -231,28 +232,29 @@ namespace avocado
 {
 	namespace backend
 	{
+		using namespace BACKEND_NAMESPACE;
 
 		avStatus_t cudaReduceTensor(avContextDescriptor_t context, avReduceOp_t operation, const void *alpha, const avTensorDescriptor_t aDesc,
 				const avMemoryDescriptor_t aMem, const void *beta, const avTensorDescriptor_t cDesc, avMemoryDescriptor_t cMem)
 		{
-			cuda::BroadcastedDimensions dimensions = cuda::getBroadcastDimensions(cuda::getTensor(aDesc), cuda::getTensor(cDesc));
-			cudaStream_t stream = cuda::getContext(context).getStream();
-			cuda::getContext(context).setDevice();
+			BroadcastedDimensions dimensions = getBroadcastDimensions(getTensor(aDesc), getTensor(cDesc));
+			cudaStream_t stream = getContext(context).getStream();
+			getContext(context).setDevice();
 
-			switch (cuda::getTensor(aDesc).dtype())
+			switch (getTensor(aDesc).dtype())
 			{
 				case AVOCADO_DTYPE_FLOAT16:
-					return launcher_reduce_tensor(stream, cuda::getPointer<float16>(cMem), cuda::getPointer<float16>(aMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), dimensions, operation, cuda::getContext(context).getWorkspace());
+					return launcher_reduce_tensor(stream, getPointer<float16>(cMem), getPointer<float16>(aMem), getAlphaValue(alpha), getBetaValue(beta),
+							dimensions, operation, getContext(context).getWorkspace());
 				case AVOCADO_DTYPE_BFLOAT16:
-					return launcher_reduce_tensor(stream, cuda::getPointer<bfloat16>(cMem), cuda::getPointer<bfloat16>(aMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), dimensions, operation, cuda::getContext(context).getWorkspace());
+					return launcher_reduce_tensor(stream, getPointer<bfloat16>(cMem), getPointer<bfloat16>(aMem), getAlphaValue(alpha), getBetaValue(beta),
+							dimensions, operation, getContext(context).getWorkspace());
 				case AVOCADO_DTYPE_FLOAT32:
-					return launcher_reduce_tensor(stream, cuda::getPointer<float>(cMem), cuda::getPointer<float>(aMem), cuda::getAlphaValue(alpha),
-							cuda::getBetaValue(beta), dimensions, operation, cuda::getContext(context).getWorkspace());
+					return launcher_reduce_tensor(stream, getPointer<float>(cMem), getPointer<float>(aMem), getAlphaValue(alpha), getBetaValue(beta),
+							dimensions, operation, getContext(context).getWorkspace());
 				case AVOCADO_DTYPE_FLOAT64:
-					return launcher_reduce_tensor(stream, cuda::getPointer<double>(cMem), cuda::getPointer<double>(aMem), cuda::getAlphaValue<double>(alpha),
-							cuda::getBetaValue<double>(beta), dimensions, operation, cuda::getContext(context).getWorkspace());
+					return launcher_reduce_tensor(stream, getPointer<double>(cMem), getPointer<double>(aMem), getAlphaValue<double>(alpha),
+							getBetaValue<double>(beta), dimensions, operation, getContext(context).getWorkspace());
 				default:
 					return AVOCADO_STATUS_UNSUPPORTED_DATATYPE;
 			}
