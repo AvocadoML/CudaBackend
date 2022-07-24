@@ -10,7 +10,17 @@
 
 #include "generic_number.cuh"
 
-#include <cuda_fp16.hpp>
+#include <cuda_fp16.h>
+
+
+namespace avocado
+{
+	namespace backend
+	{
+		typedef half float16;
+		typedef half2 float16x2;
+	} /* namespace backend */
+} /* namespace avocado */
 
 namespace numbers
 {
@@ -20,15 +30,15 @@ namespace numbers
 	template<>
 	class Number<float16>
 	{
-	private:
+		private:
 #if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
 		float16x2 m_data;
 #elif __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
 		float m_data;
 #else
 #endif
-	public:
-		__device__ Number() = default;
+		public:
+			__device__ Number() = default;
 #if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
 		__device__ Number(float16x2 x) :
 				m_data(x)
@@ -60,15 +70,15 @@ namespace numbers
 		{
 		}
 #else
-		__device__ Number(float16 x)
-		{
-		}
-		__device__ Number(float x)
-		{
-		}
-		__device__ Number(double x)
-		{
-		}
+			__device__ Number(float16 x)
+			{
+			}
+			__device__ Number(float x)
+			{
+			}
+			__device__ Number(double x)
+			{
+			}
 #endif
 #if __CUDA_ARCH__ >= FP16_COMPUTE_MIN_ARCH
 		__device__ Number(const float16 *ptr, int num = 2)
@@ -205,42 +215,42 @@ namespace numbers
 			return m_data;
 		}
 #else
-		__device__ Number(const float16 *ptr, int num = 0)
-		{
-		}
-		__device__ Number(const float *ptr, int num = 0)
-		{
-		}
-		__device__ void load(const float16 *ptr, int num = 0)
-		{
-		}
-		__device__ void load(const float *ptr, int num = 0)
-		{
-		}
-		__device__ void store(float16 *ptr, int num = 0) const
-		{
-		}
-		__device__ void store(float *ptr, int num = 0) const
-		{
-		}
-		__device__ operator float() const
-		{
-			return 0.0f;
-		}
-		__device__ Number<float16> operator-() const
-		{
-			return Number<float16>(0.0f);
-		}
+			__device__ Number(const float16 *ptr, int num = 0)
+			{
+			}
+			__device__ Number(const float *ptr, int num = 0)
+			{
+			}
+			__device__ void load(const float16 *ptr, int num = 0)
+			{
+			}
+			__device__ void load(const float *ptr, int num = 0)
+			{
+			}
+			__device__ void store(float16 *ptr, int num = 0) const
+			{
+			}
+			__device__ void store(float *ptr, int num = 0) const
+			{
+			}
+			__device__ operator float() const
+			{
+				return 0.0f;
+			}
+			__device__ Number<float16> operator-() const
+			{
+				return Number<float16>(0.0f);
+			}
 #endif
-		__device__ Number<float16> operator~() const
-		{
+			__device__ Number<float16> operator~() const
+			{
 #if __CUDA_ARCH__ >= FP16_STORAGE_MIN_ARCH
 			const int32_t tmp = ~reinterpret_cast<const int32_t*>(&m_data)[0];
 			return Number<float16>(reinterpret_cast<const float16*>(&tmp)[0]);
 #else
-			return Number<float16>();
+				return Number<float16>();
 #endif
-		}
+			}
 	};
 
 	template<>

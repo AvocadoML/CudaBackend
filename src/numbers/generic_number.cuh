@@ -21,25 +21,6 @@
 #define FP16_COMPUTE_MIN_ARCH 700
 #define FP16_STORAGE_MIN_ARCH 530
 
-namespace avocado
-{
-	namespace backend
-	{
-#if HAS_BF16_HEADER
-		typedef __nv_bfloat16 bfloat16;
-		typedef __nv_bfloat162 bfloat16x2;
-#else
-		struct bfloat16
-		{
-			uint16_t x;
-		};
-#endif
-
-		typedef half float16;
-		typedef half2 float16x2;
-	} /* namespace backend */
-} /* namespace avocado */
-
 namespace internal
 {
 	template<typename T>
@@ -51,19 +32,6 @@ namespace internal
 
 namespace numbers
 {
-#if (__CUDA_ARCH__ < BF16_COMPUTE_MIN_ARCH) or not HAS_BF16_HEADER
-	DEVICE_INLINE __host__ avocado::backend::bfloat16 float_to_bfloat16(float x)
-	{
-		return reinterpret_cast<avocado::backend::bfloat16*>(&x)[1];
-	}
-	DEVICE_INLINE __host__ float bfloat16_to_float(avocado::backend::bfloat16 x) noexcept
-	{
-		float result = 0.0f;
-		reinterpret_cast<avocado::backend::bfloat16*>(&result)[1] = x;
-		return result;
-	}
-#endif
-
 	template<typename T, class dummy = T>
 	class Number;
 

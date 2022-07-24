@@ -11,38 +11,69 @@
 #include "generic_number.cuh"
 
 #if HAS_BF16_HEADER
-#  include <cuda_bf16.hpp>
+#  include <cuda_bf16.h>
 #endif
+
+
+
+namespace avocado
+{
+	namespace backend
+	{
+#if HAS_BF16_HEADER
+		typedef __nv_bfloat16 bfloat16;
+		typedef __nv_bfloat162 bfloat16x2;
+#else
+		struct bfloat16
+		{
+			uint16_t x;
+		};
+#endif
+	} /* namespace backend */
+} /* namespace avocado */
 
 namespace numbers
 {
 	using avocado::backend::bfloat16;
 
+#if (__CUDA_ARCH__ < BF16_COMPUTE_MIN_ARCH) or not HAS_BF16_HEADER
+	DEVICE_INLINE __host__ avocado::backend::bfloat16 float_to_bfloat16(float x)
+	{
+		return reinterpret_cast<avocado::backend::bfloat16*>(&x)[1];
+	}
+	DEVICE_INLINE __host__ float bfloat16_to_float(avocado::backend::bfloat16 x) noexcept
+	{
+		float result = 0.0f;
+		reinterpret_cast<avocado::backend::bfloat16*>(&result)[1] = x;
+		return result;
+	}
+#endif
+
 	template<>
 	class Number<bfloat16>
 	{
-	private:
+		private:
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 		// bfloat16x2 m_data;
 #else
-		float m_data;
+			float m_data;
 #endif
-	public:
-		__device__ Number() = default;
+		public:
+			__device__ Number() = default;
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 //		__device__ Number(bfloat162 x) :
 //		m_data(x)
 //		{
 //		}
 #else
-		__device__ Number(bfloat16 x) :
-				m_data(bfloat16_to_float(x))
-		{
-		}
-		__device__ Number(float x) :
-				m_data(x)
-		{
-		}
+			__device__ Number(bfloat16 x) :
+					m_data(bfloat16_to_float(x))
+			{
+			}
+			__device__ Number(float x) :
+					m_data(x)
+			{
+			}
 #endif
 #if (__CUDA_ARCH__ >= BF16_COMPUTE_MIN_ARCH) and HAS_BF16_HEADER
 //		__device__ Number(const bfloat16 *ptr, int num = 2)
@@ -118,56 +149,56 @@ namespace numbers
 //			return Number<bfloat16>(-m_data);
 //		}
 #else
-		__device__ Number(const bfloat16 *ptr, int num = 1)
-		{
-			load(ptr, num);
-		}
-		__device__ Number(const float *ptr, int num = 1)
-		{
-			load(ptr, num);
-		}
-		__device__ void load(const bfloat16 *ptr, int num = 1)
-		{
-			assert(ptr != nullptr);
-			if (num >= 1)
-				m_data = bfloat16_to_float(ptr[0]);
-		}
-		__device__ void load(const float *ptr, int num = 1)
-		{
-			assert(ptr != nullptr);
-			if (num >= 1)
-				m_data = ptr[0];
-		}
-		__device__ void store(bfloat16 *ptr, int num = 1) const
-		{
-			assert(ptr != nullptr);
-			if (num >= 1)
-				ptr[0] = float_to_bfloat16(m_data);
-		}
-		__device__ void store(float *ptr, int num = 1) const
-		{
-			assert(ptr != nullptr);
-			if (num >= 1)
-				ptr[0] = m_data;
-		}
-		__device__ operator float() const
-		{
-			return m_data;
-		}
-		__device__ Number<bfloat16> operator-() const
-		{
-			return Number<bfloat16>(-m_data);
-		}
-		__device__ bfloat16 get() const
-		{
-			return float_to_bfloat16(m_data);
-		}
+			__device__ Number(const bfloat16 *ptr, int num = 1)
+			{
+				load(ptr, num);
+			}
+			__device__ Number(const float *ptr, int num = 1)
+			{
+				load(ptr, num);
+			}
+			__device__ void load(const bfloat16 *ptr, int num = 1)
+			{
+				assert(ptr != nullptr);
+				if (num >= 1)
+					m_data = bfloat16_to_float(ptr[0]);
+			}
+			__device__ void load(const float *ptr, int num = 1)
+			{
+				assert(ptr != nullptr);
+				if (num >= 1)
+					m_data = ptr[0];
+			}
+			__device__ void store(bfloat16 *ptr, int num = 1) const
+			{
+				assert(ptr != nullptr);
+				if (num >= 1)
+					ptr[0] = float_to_bfloat16(m_data);
+			}
+			__device__ void store(float *ptr, int num = 1) const
+			{
+				assert(ptr != nullptr);
+				if (num >= 1)
+					ptr[0] = m_data;
+			}
+			__device__ operator float() const
+			{
+				return m_data;
+			}
+			__device__ Number<bfloat16> operator-() const
+			{
+				return Number<bfloat16>(-m_data);
+			}
+			__device__ bfloat16 get() const
+			{
+				return float_to_bfloat16(m_data);
+			}
 #endif
-		__device__ Number<bfloat16> operator~() const
-		{
-			const int32_t tmp = ~reinterpret_cast<const int32_t*>(&m_data)[0];
-			return Number<bfloat16>(reinterpret_cast<const bfloat16*>(&tmp)[0]);
-		}
+			__device__ Number<bfloat16> operator~() const
+			{
+				const int32_t tmp = ~reinterpret_cast<const int32_t*>(&m_data)[0];
+				return Number<bfloat16>(reinterpret_cast<const bfloat16*>(&tmp)[0]);
+			}
 	};
 
 	template<>
